@@ -297,6 +297,21 @@ nav[aria-label="site"] a[aria-current="page"] {
   text-align: left;
 }
 
+/* select.astro's table only: a fixed layout so the course <select> (whose
+   content can be long — code, title, semester, rating) can't blow out the
+   column past the card into the requirements panel beside it. */
+.slot-grid {
+  table-layout: fixed;
+}
+
+.slot-grid th[scope="row"] {
+  width: 3rem;
+}
+
+.slot-grid td {
+  overflow: hidden;
+}
+
 .plan-grid tr:last-child th,
 .plan-grid tr:last-child td {
   border-bottom: none;
@@ -318,9 +333,12 @@ nav[aria-label="site"] a[aria-current="page"] {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  min-width: 0;
 }
 
 .plan-grid select {
+  width: 100%;
+  min-width: 0;
   font: inherit;
   padding: 0.4rem 0.6rem;
   border-radius: 0.5rem;
