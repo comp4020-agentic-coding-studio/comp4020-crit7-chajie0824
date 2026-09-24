@@ -1,0 +1,1 @@
+ALTER TABLE `courses` ADD `rating` real NOT NULL DEFAULT 4;

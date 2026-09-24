@@ -13,27 +13,29 @@ import type { Course } from "./schema";
 // trying to get away from, not rebuild. Each is represented here by a
 // realistic subset instead; see README for why that's the right call for
 // this slice.
+//
+// `rating` is illustrative demo data (see schema.ts) — not sourced from ANU.
 export const courseSeed: readonly Course[] = [
-  { code: "COMP6250", title: "Professional Practice: Holistic Thinking and Communication", units: 6, semester: "S1", requirementGroup: "core" },
-  { code: "COMP6442", title: "Software Construction", units: 6, semester: "BOTH", requirementGroup: "core" },
-  { code: "COMP6710", title: "Structured Programming", units: 6, semester: "BOTH", requirementGroup: "core" },
-  { code: "COMP8260", title: "Professional Practice: Responsible Innovation & Leadership", units: 6, semester: "S2", requirementGroup: "core" },
+  { code: "COMP6250", title: "Professional Practice: Holistic Thinking and Communication", units: 6, semester: "S1", requirementGroup: "core", rating: 4.2 },
+  { code: "COMP6442", title: "Software Construction", units: 6, semester: "BOTH", requirementGroup: "core", rating: 4.5 },
+  { code: "COMP6710", title: "Structured Programming", units: 6, semester: "BOTH", requirementGroup: "core", rating: 4.6 },
+  { code: "COMP8260", title: "Professional Practice: Responsible Innovation & Leadership", units: 6, semester: "S2", requirementGroup: "core", rating: 4.0 },
 
-  { code: "MATH6005", title: "Discrete Mathematical Models", units: 6, semester: "S1", requirementGroup: "foundational" },
-  { code: "COMP6260", title: "Foundations of Computing", units: 6, semester: "S2", requirementGroup: "foundational" },
+  { code: "MATH6005", title: "Discrete Mathematical Models", units: 6, semester: "S1", requirementGroup: "foundational", rating: 3.8 },
+  { code: "COMP6260", title: "Foundations of Computing", units: 6, semester: "S2", requirementGroup: "foundational", rating: 4.1 },
 
-  { code: "COMP8715", title: "Advanced Computing Team Project", units: 6, semester: "BOTH", requirementGroup: "capstone" },
-  { code: "COMP8830", title: "Computing Internship", units: 12, semester: "BOTH", requirementGroup: "capstone" },
+  { code: "COMP8715", title: "Advanced Computing Team Project", units: 6, semester: "BOTH", requirementGroup: "capstone", rating: 4.4 },
+  { code: "COMP8830", title: "Computing Internship", units: 12, semester: "BOTH", requirementGroup: "capstone", rating: 4.3 },
 
   // Professional Computing (PCOM-SPEC), both compulsory courses:
-  { code: "COMP6120", title: "Software Engineering", units: 6, semester: "S2", requirementGroup: "spec-compulsory" },
-  { code: "ENGN8100", title: "Introduction to Systems Engineering", units: 6, semester: "S1", requirementGroup: "spec-compulsory" },
+  { code: "COMP6120", title: "Software Engineering", units: 6, semester: "S2", requirementGroup: "spec-compulsory", rating: 4.0 },
+  { code: "ENGN8100", title: "Introduction to Systems Engineering", units: 6, semester: "S1", requirementGroup: "spec-compulsory", rating: 3.9 },
   // Elective list A (choose 1 of 8 in the real handbook) — 3 of the 8:
-  { code: "COMP6240", title: "Relational Databases", units: 6, semester: "BOTH", requirementGroup: "spec-listA" },
-  { code: "COMP6331", title: "Computer Networks", units: 6, semester: "S1", requirementGroup: "spec-listA" },
-  { code: "COMP6390", title: "Human-Computer Interaction", units: 6, semester: "S2", requirementGroup: "spec-listA" },
+  { code: "COMP6240", title: "Relational Databases", units: 6, semester: "BOTH", requirementGroup: "spec-listA", rating: 4.2 },
+  { code: "COMP6331", title: "Computer Networks", units: 6, semester: "S1", requirementGroup: "spec-listA", rating: 4.0 },
+  { code: "COMP6390", title: "Human-Computer Interaction", units: 6, semester: "S2", requirementGroup: "spec-listA", rating: 4.5 },
   // Elective list B (real rule: any 8000-level COMP course except the
   // project courses) — 2 representative options:
-  { code: "COMP8600", title: "Statistical Machine Learning", units: 6, semester: "S1", requirementGroup: "spec-listB" },
-  { code: "COMP8880", title: "Computational Methods for Network Science", units: 6, semester: "S1", requirementGroup: "spec-listB" },
+  { code: "COMP8600", title: "Statistical Machine Learning", units: 6, semester: "S1", requirementGroup: "spec-listB", rating: 4.6 },
+  { code: "COMP8880", title: "Computational Methods for Network Science", units: 6, semester: "S1", requirementGroup: "spec-listB", rating: 4.1 },
 ];

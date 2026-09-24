@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { int, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { int, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 // The schema is the ground truth for the database. To change it: edit here,
 // run `pnpm db:generate` to turn the diff into a migration under drizzle/,
@@ -24,6 +24,10 @@ export const courses = sqliteTable("courses", {
   // applies to each group. "core" | "foundational" | "capstone" |
   // "spec-compulsory" | "spec-listA" | "spec-listB".
   requirementGroup: text("requirement_group").notNull(),
+  // Illustrative only — ANU doesn't publish a student rating for courses the
+  // way the reference 教务系统 screenshots do. Seeded with plausible demo
+  // values so the UI has something to show; not a real ANU data point.
+  rating: real().notNull(),
 });
 
 export type Course = typeof courses.$inferSelect;

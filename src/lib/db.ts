@@ -26,10 +26,26 @@ export const db = drizzle(client);
 // commit the migration it writes to drizzle/.
 migrate(db, { migrationsFolder: "./drizzle" });
 
-// The catalogue is fixed content, not user data — re-seeding on every boot
-// (skipping rows that already exist) is simpler than a one-off migration
-// step and lets editing courseSeed.ts take effect on the next deploy.
-db.insert(courses).values([...courseSeed]).onConflictDoNothing().run();
+// The catalogue is fixed content, not user data — upserting on every boot
+// (instead of insert-if-missing) is simpler than a one-off migration step
+// and means editing courseSeed.ts (including a field on an existing row,
+// like adding `rating`) always takes effect on the next deploy.
+for (const course of courseSeed) {
+  db
+    .insert(courses)
+    .values(course)
+    .onConflictDoUpdate({
+      target: courses.code,
+      set: {
+        title: course.title,
+        units: course.units,
+        semester: course.semester,
+        requirementGroup: course.requirementGroup,
+        rating: course.rating,
+      },
+    })
+    .run();
+}
 
 // currentTerm starts wherever the student actually is; seeded once, then
 // only ever changed via setCurrentTerm.
