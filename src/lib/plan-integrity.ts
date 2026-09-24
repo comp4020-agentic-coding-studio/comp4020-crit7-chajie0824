@@ -1,4 +1,14 @@
 import type { Course, PlanEntry } from "./schema";
+import { termSemester } from "./terms";
+
+// A course offered only in S1 can't actually be taken in an S2 term, and
+// vice versa — "BOTH" means either, "NONE" means it isn't offered at all
+// (a defensive case; no seeded course currently uses it).
+export function semesterConflict(course: Course, term: number): boolean {
+  if (course.semester === "NONE") return true;
+  if (course.semester === "BOTH") return false;
+  return course.semester !== termSemester(term);
+}
 
 export type DuplicateReason = "duplicate" | "non-consecutive";
 

@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { assignCourse, clearSlot, listCourses, listPlan, listPrerequisites } from "../../lib/db";
 import { completedBefore, missingPrereqs } from "../../lib/prerequisites";
-import { checkDuplicate } from "../../lib/plan-integrity";
+import { checkDuplicate, semesterConflict } from "../../lib/plan-integrity";
 
 export const POST: APIRoute = async ({ request, redirect }) => {
   const form = await request.formData();
@@ -20,6 +20,11 @@ export const POST: APIRoute = async ({ request, redirect }) => {
       const plan = listPlan();
 
       if (course) {
+        if (semesterConflict(course, term)) {
+          const separator = returnTo.includes("?") ? "&" : "?";
+          return redirect(`${returnTo}${separator}notoffered=${encodeURIComponent(courseCode)}`, 303);
+        }
+
         const dup = checkDuplicate(course, plan, term, position);
         if (dup.blocked) {
           const separator = returnTo.includes("?") ? "&" : "?";

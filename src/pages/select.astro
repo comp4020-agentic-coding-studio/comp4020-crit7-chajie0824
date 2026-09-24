@@ -1,7 +1,7 @@
 ---
 import { getCurrentTerm, listCourses, listPlan, listPrerequisites } from "../lib/db";
 import { completedBefore, missingPrereqs } from "../lib/prerequisites";
-import { checkDuplicate } from "../lib/plan-integrity";
+import { checkDuplicate, semesterConflict } from "../lib/plan-integrity";
 import { REQUIREMENT_GROUPS, computeProgress } from "../lib/requirements";
 import { termLabel, termSemester } from "../lib/terms";
 import "../styles.css";
@@ -13,6 +13,7 @@ const returnTo = `/select/?term=${term}`;
 const lockedCode = Astro.url.searchParams.get("locked");
 const duplicateCode = Astro.url.searchParams.get("duplicate");
 const nonconsecutiveCode = Astro.url.searchParams.get("nonconsecutive");
+const notOfferedCode = Astro.url.searchParams.get("notoffered");
 
 const courses = listCourses();
 const plan = listPlan();
@@ -30,12 +31,6 @@ function missingFor(courseCode: string): string[] {
 }
 
 const semester = termSemester(term);
-function conflicts(course: { semester: string } | undefined): boolean {
-  if (!course) return false;
-  if (course.semester === "NONE") return true;
-  if (course.semester === "BOTH") return false;
-  return course.semester !== semester;
-}
 ---
 
 <!doctype html>
@@ -81,6 +76,12 @@ function conflicts(course: { semester: string } | undefined): boolean {
         </p>
       )}
 
+      {notOfferedCode && (
+        <p class="banner banner-warning">
+          📅 <strong>{notOfferedCode}</strong> isn't offered in {semester} — not added.
+        </p>
+      )}
+
       <div class="select-layout">
         <div class="card">
           <table class="plan-grid slot-grid">
@@ -95,7 +96,7 @@ function conflicts(course: { semester: string } | undefined): boolean {
               {[1, 2, 3, 4].map((position) => {
                 const entry = planByPosition.get(position);
                 const course = entry ? courseByCode.get(entry.courseCode) : undefined;
-                const isConflict = conflicts(course);
+                const isConflict = course ? semesterConflict(course, term) : false;
                 const courseMissing = course ? missingFor(course.code) : [];
                 return (
                   <tr class={isConflict ? "slot conflict" : "slot"}>
@@ -118,20 +119,24 @@ function conflicts(course: { semester: string } | undefined): boolean {
                                   const isSelf = c.code === course?.code;
                                   const missing = missingFor(c.code);
                                   const dup = checkDuplicate(c, plan, term, position);
-                                  const locked = (missing.length > 0 || dup.blocked) && !isSelf;
-                                  const reason = dup.blocked
-                                    ? dup.reason === "non-consecutive"
-                                      ? ` — must be consecutive with Term ${dup.otherEntry?.term}`
-                                      : ` — already in Term ${dup.otherEntry?.term}`
-                                    : missing.length > 0
-                                      ? ` — needs ${missing.join(", ")}`
-                                      : "";
+                                  const offSemester = semesterConflict(c, term);
+                                  const locked = (missing.length > 0 || dup.blocked || offSemester) && !isSelf;
+                                  const icon = !locked ? "" : dup.blocked ? "🔁 " : missing.length > 0 ? "🔒 " : "📅 ";
+                                  const reason = !locked
+                                    ? ""
+                                    : dup.blocked
+                                      ? dup.reason === "non-consecutive"
+                                        ? ` — must be consecutive with Term ${dup.otherEntry?.term}`
+                                        : ` — already in Term ${dup.otherEntry?.term}`
+                                      : missing.length > 0
+                                        ? ` — needs ${missing.join(", ")}`
+                                        : ` — not offered in ${semester}`;
                                   return (
                                     <option value={c.code} selected={isSelf} disabled={locked}>
-                                      {locked ? (dup.blocked ? "🔁 " : "🔒 ") : ""}
+                                      {icon}
                                       {c.code} — {c.title} ({c.semester}) · ★{c.rating.toFixed(1)}
                                       {c.termSpan > 1 ? " · spans 2 terms" : ""}
-                                      {locked ? reason : ""}
+                                      {reason}
                                     </option>
                                   );
                                 })}
