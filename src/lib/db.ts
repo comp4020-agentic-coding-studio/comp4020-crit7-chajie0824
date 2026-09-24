@@ -91,6 +91,32 @@ export function assignCourse(term: number, position: number, courseCode: string)
     .get();
 }
 
+// Writes both halves of a term-spanning course's enrolment together: the
+// slot the student picked, plus its pair slot in the adjacent term
+// (already chosen and validated by plan-integrity.ts's findPairSlot).
+// Wrapped in one transaction so the pair can never be split by a mid-write
+// failure — the write-side counterpart to clearSlot's own cascading delete.
+export function assignCoursePair(
+  term: number,
+  position: number,
+  pairTerm: number,
+  pairPosition: number,
+  courseCode: string,
+): void {
+  db.transaction((tx) => {
+    for (const [t, p] of [[term, position], [pairTerm, pairPosition]] as const) {
+      tx
+        .insert(planEntries)
+        .values({ term: t, position: p, courseCode })
+        .onConflictDoUpdate({
+          target: [planEntries.term, planEntries.position],
+          set: { courseCode },
+        })
+        .run();
+    }
+  });
+}
+
 // Clearing one half of a term-spanning course (see Course.termSpan) would
 // otherwise leave an orphan half representing a project that no longer
 // makes sense on its own — so clearing a slot also clears the paired slot

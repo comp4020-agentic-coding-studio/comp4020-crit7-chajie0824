@@ -73,3 +73,69 @@ export function buildMergedPlan(
     .map((s) => ({ id: -1, term, position: s.position, courseCode: s.courseCode, createdAt: "" }));
   return [...others, ...replaced];
 }
+
+export interface PairTarget {
+  term: number;
+  position: number;
+}
+
+export type PairResult =
+  | { kind: "none" } // termSpan <= 1, or not a fresh placement
+  | { kind: "target"; target: PairTarget }
+  | { kind: "no-room" };
+
+// Only fires for a FRESH placement of a termSpan>1 course (zero other
+// entries anywhere for this courseCode) — checkDuplicate already treats a
+// second, adjacent entry as a complete pair, so this must not re-trigger
+// then. Prefers term+1 (forward); falls back to term-1 only if forward is
+// out of range or occupied at this exact position; otherwise "no-room".
+// The target always keeps the SAME position — never any other free one.
+export function findPairSlot(
+  course: Course,
+  plan: readonly PlanEntry[],
+  term: number,
+  position: number,
+): PairResult {
+  if (course.termSpan <= 1) return { kind: "none" };
+
+  const others = plan.filter(
+    (p) => p.courseCode === course.code && !(p.term === term && p.position === position),
+  );
+  if (others.length > 0) return { kind: "none" };
+
+  const inRange = (t: number) => t >= 1 && t <= 4;
+  const occupied = (t: number) => plan.some((p) => p.term === t && p.position === position);
+
+  if (inRange(term + 1) && !occupied(term + 1)) {
+    return { kind: "target", target: { term: term + 1, position } };
+  }
+  if (inRange(term - 1) && !occupied(term - 1)) {
+    return { kind: "target", target: { term: term - 1, position } };
+  }
+  return { kind: "no-room" };
+}
+
+export interface PairLockCheck {
+  blocked: boolean;
+  pairedTerm?: number;
+}
+
+// A slot whose CURRENTLY PERSISTED course spans multiple terms is one half
+// of a pair — used by both select.astro (disable every option but self and
+// empty) and api/plan.ts (reject a submitted change to a different course,
+// which would otherwise silently orphan the other half). Clearing is
+// deliberately not this function's concern — that stays always allowed and
+// cascades via the existing clearSlot.
+export function pairLock(
+  plan: readonly PlanEntry[],
+  courses: readonly Course[],
+  term: number,
+  position: number,
+): PairLockCheck {
+  const existing = plan.find((p) => p.term === term && p.position === position);
+  if (!existing) return { blocked: false };
+  const course = courses.find((c) => c.code === existing.courseCode);
+  if (!course || course.termSpan <= 1) return { blocked: false };
+  const pairedTerm = plan.find((p) => p.courseCode === existing.courseCode && p.term !== term)?.term;
+  return { blocked: true, pairedTerm };
+}
