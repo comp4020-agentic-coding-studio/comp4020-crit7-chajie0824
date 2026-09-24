@@ -15,6 +15,8 @@
   --text: #1b2138;
   --muted: #626b8a;
   --border: #dde2f0;
+  --star: #eab308;
+  --star-track: #d8dbe0;
   --radius: 0.9rem;
   --sidebar-width: 15rem;
 }
@@ -348,6 +350,32 @@ nav[aria-label="site"] a[aria-current="page"] {
   margin: 0.4rem 0 0;
   font-size: 0.85rem;
   color: var(--muted);
+}
+
+/* Fractional 5-star rating: the ★★★★★ track sits in --star-track, and a
+   ::before copy clipped to --pct (0%–100% of the track's width) overlays it
+   in --star, so e.g. 4.4/5 fills 88% of the fifth star instead of rounding. */
+.star-rating {
+  position: relative;
+  display: inline-block;
+  letter-spacing: 0.1em;
+  color: var(--star-track);
+}
+
+.star-rating::before {
+  content: "★★★★★";
+  position: absolute;
+  inset: 0;
+  width: var(--pct);
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--star);
+}
+
+.rating-value {
+  font-weight: 600;
+  color: var(--star);
+  margin-left: 0.3em;
 }
 
 .slot.conflict {

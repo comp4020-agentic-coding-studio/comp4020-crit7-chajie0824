@@ -34,6 +34,14 @@ function missingFor(courseCode: string): string[] {
   return missingPrereqs(courseCode, prereqs, completed);
 }
 
+// <option> text can't carry CSS, so it gets a plain star string rounded to
+// the nearest whole star; the fractional CSS version (--pct) is reserved
+// for the slot-detail rating below, which is a plain <p> and can style it.
+function starGlyphs(rating: number): string {
+  const filled = Math.round(rating);
+  return "★".repeat(filled) + "☆".repeat(5 - filled);
+}
+
 const semester = termSemester(term);
 ---
 
@@ -162,7 +170,7 @@ const semester = termSemester(term);
                                   return (
                                     <option value={c.code} selected={isSelf} disabled={locked}>
                                       {icon}
-                                      {c.code} — {c.title} ({c.semester}) · ★{c.rating.toFixed(1)}
+                                      {c.code} — {c.title} ({c.semester}) · {starGlyphs(c.rating)} {c.rating.toFixed(1)}
                                       {c.termSpan > 1 ? " · spans 2 terms" : ""}
                                       {reason}
                                     </option>
@@ -173,7 +181,16 @@ const semester = termSemester(term);
                         </select>
                         {course && (
                           <p class="slot-detail">
-                            {course.units} units · ★{course.rating.toFixed(1)}.
+                            {course.units} units ·{" "}
+                            <span
+                              class="star-rating"
+                              style={`--pct: ${Math.max(0, Math.min(100, (course.rating / 5) * 100))}%`}
+                              role="img"
+                              aria-label={`Rating ${course.rating.toFixed(1)} out of 5`}
+                            >
+                              ★★★★★
+                            </span>
+                            <span class="rating-value">{course.rating.toFixed(1)}</span>.
                             {course.termSpan > 1 && (
                               <strong>
                                 {" "}Spans 2 consecutive terms — paired with Term {pairInfo.pairedTerm}; clear this
