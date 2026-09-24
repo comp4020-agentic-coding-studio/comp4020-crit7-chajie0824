@@ -7,7 +7,7 @@ body {
 }
 
 main {
-  max-width: 60rem;
+  max-width: 64rem;
   margin: 0 auto;
 }
 
@@ -38,9 +38,113 @@ button {
   border-radius: 0.5rem;
 }
 
-.conflict-summary {
-  color: #b3261e;
+.current-term-form {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-block: 1rem;
+}
+
+.current-term-form select {
+  font: inherit;
+  padding: 0.3rem;
+}
+
+.progress-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.progress-item {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.4rem;
+  background: #f2f4f7;
+}
+
+.progress-item.done {
+  background: #e6f4ea;
+  color: #1e6b34;
+}
+
+.progress-item.pending {
+  background: #fdecea;
+  color: #8a2e24;
+}
+
+.term-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 1rem;
+  margin-block: 1rem 2rem;
+}
+
+.term-card {
+  border: 1px solid #d0d5dd;
+  border-left-width: 4px;
+  border-radius: 0.4rem;
+  padding: 0.75rem 1rem;
+}
+
+.term-card h3 {
+  margin: 0 0 0.25rem;
+}
+
+.term-card-label {
+  font-weight: 400;
+  color: #475467;
+  font-size: 0.85em;
+}
+
+.term-card.status-done {
+  border-left-color: #1e6b34;
+}
+
+.term-card.status-current {
+  border-left-color: #0b5fff;
+}
+
+.term-card.status-future {
+  border-left-color: #d0d5dd;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
   font-weight: 600;
+  padding: 0.1rem 0.5rem;
+  border-radius: 1rem;
+  background: #eef1f5;
+  color: #475467;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.term-slot-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+.select-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(12rem, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.requirement-panel {
+  padding: 0.75rem 1rem;
+  background: #f2f4f7;
+  border-radius: 0.5rem;
+}
+
+.requirement-panel h2 {
+  margin-top: 0;
 }
 
 .plan-grid {
@@ -84,4 +188,10 @@ button {
 
 .slot.conflict .slot-detail strong {
   color: #b3261e;
+}
+
+@media (max-width: 40rem) {
+  .select-layout {
+    grid-template-columns: 1fr;
+  }
 }

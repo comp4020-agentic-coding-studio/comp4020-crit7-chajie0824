@@ -1,0 +1,132 @@
+---
+import { getCurrentTerm, listCourses, listPlan } from "../lib/db";
+import { REQUIREMENT_GROUPS, computeProgress } from "../lib/requirements";
+import { termLabel, termSemester } from "../lib/terms";
+import "../styles.css";
+
+const currentTerm = getCurrentTerm();
+const requestedTerm = Number(Astro.url.searchParams.get("term"));
+const term = requestedTerm >= 1 && requestedTerm <= 4 ? requestedTerm : currentTerm;
+const returnTo = `/select/?term=${term}`;
+
+const courses = listCourses();
+const plan = listPlan();
+const courseByCode = new Map(courses.map((c) => [c.code, c]));
+const planByPosition = new Map(
+  plan.filter((p) => p.term === term).map((p) => [p.position, p]),
+);
+const progress = computeProgress(courses, plan);
+const outstanding = progress.filter((g) => !g.satisfied);
+
+const semester = termSemester(term);
+function conflicts(course: { semester: string } | undefined): boolean {
+  if (!course) return false;
+  if (course.semester === "NONE") return true;
+  if (course.semester === "BOTH") return false;
+  return course.semester !== semester;
+}
+---
+
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>This semester — Term {term}</title>
+  </head>
+  <body>
+    <nav aria-label="site">
+      <a href="/">Roadmap</a>
+      <a href="/select/">This semester</a>
+      <a href="/completed/">Completed</a>
+      <a href="/readme/">About</a>
+    </nav>
+    <main>
+      <h1>
+        Term {term} <span class="term-card-label">{termLabel(term)}</span>
+      </h1>
+      <p>
+        {term === currentTerm
+          ? "Your current semester."
+          : `Editing a ${term < currentTerm ? "past" : "future"} term — jump back to the current one from the roadmap.`}
+      </p>
+
+      <div class="select-layout">
+        <table class="plan-grid">
+          <caption class="visually-hidden">Term {term} slots</caption>
+          <thead>
+            <tr>
+              <th scope="col">Slot</th>
+              <th scope="col">Course</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[1, 2, 3, 4].map((position) => {
+              const entry = planByPosition.get(position);
+              const course = entry ? courseByCode.get(entry.courseCode) : undefined;
+              const isConflict = conflicts(course);
+              return (
+                <tr class={isConflict ? "slot conflict" : "slot"}>
+                  <th scope="row">{position}</th>
+                  <td>
+                    <form method="post" action="/api/plan">
+                      <input type="hidden" name="term" value={term} />
+                      <input type="hidden" name="position" value={position} />
+                      <input type="hidden" name="returnTo" value={returnTo} />
+                      <label class="visually-hidden" for={`select-${position}`}>
+                        Term {term}, slot {position}
+                      </label>
+                      <select id={`select-${position}`} name="courseCode">
+                        <option value="">— empty —</option>
+                        {REQUIREMENT_GROUPS.map((group) => (
+                          <optgroup label={group.label}>
+                            {courses
+                              .filter((c) => c.requirementGroup === group.key)
+                              .map((c) => (
+                                <option value={c.code} selected={c.code === course?.code}>
+                                  {c.code} — {c.title} ({c.semester})
+                                </option>
+                              ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                      <button>Set</button>
+                    </form>
+                    {course && (
+                      <p class="slot-detail">
+                        {course.units} units.
+                        {isConflict && <strong> Not offered in {semester}.</strong>}
+                      </p>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        <aside class="requirement-panel" aria-label="Outstanding requirements">
+          <h2>Still to pick</h2>
+          {outstanding.length === 0 ? (
+            <p>Every requirement is satisfied.</p>
+          ) : (
+            <ul class="progress-list">
+              {outstanding.map((group) => (
+                <li class="progress-item pending">
+                  <strong>{group.label}:</strong>{" "}
+                  {group.rule === "all" ? (
+                    <span>
+                      {group.required.filter((c) => !group.assigned.includes(c)).map((c) => c.code).join(", ")}
+                    </span>
+                  ) : (
+                    <span>one of {group.required.map((c) => c.code).join(", ")}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </aside>
+      </div>
+    </main>
+  </body>
+</html>

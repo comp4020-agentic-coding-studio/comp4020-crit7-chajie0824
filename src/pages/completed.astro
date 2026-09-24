@@ -1,0 +1,98 @@
+---
+import { getCurrentTerm, listCourses, listPlan } from "../lib/db";
+import { computeProgress } from "../lib/requirements";
+import { TERMS } from "../lib/terms";
+import "../styles.css";
+
+const currentTerm = getCurrentTerm();
+const courses = listCourses();
+const plan = listPlan();
+const courseByCode = new Map(courses.map((c) => [c.code, c]));
+
+const completedTerms = TERMS.filter((t) => t.term < currentTerm);
+const completedPlan = plan.filter((p) => p.term < currentTerm);
+const totalUnits = completedPlan.reduce((sum, p) => sum + (courseByCode.get(p.courseCode)?.units ?? 0), 0);
+const progress = computeProgress(courses, completedPlan);
+---
+
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Completed courses</title>
+  </head>
+  <body>
+    <nav aria-label="site">
+      <a href="/">Roadmap</a>
+      <a href="/select/">This semester</a>
+      <a href="/completed/">Completed</a>
+      <a href="/readme/">About</a>
+    </nav>
+    <main>
+      <h1>Completed courses</h1>
+      <p>Everything assigned to a term before the current one — what already counts towards graduation.</p>
+
+      <p class="summary" aria-live="polite">
+        <strong>{totalUnits} units</strong> completed.
+      </p>
+
+      {completedTerms.length === 0 ? (
+        <p>No terms completed yet.</p>
+      ) : (
+        <table class="plan-grid">
+          <caption class="visually-hidden">Completed terms and their courses</caption>
+          <thead>
+            <tr>
+              <th scope="col">Term</th>
+              <th scope="col">Slot</th>
+              <th scope="col">Course</th>
+              <th scope="col">Units</th>
+            </tr>
+          </thead>
+          <tbody>
+            {completedTerms.map((t) =>
+              [1, 2, 3, 4].map((position) => {
+                const entry = completedPlan.find((p) => p.term === t.term && p.position === position);
+                const course = entry ? courseByCode.get(entry.courseCode) : undefined;
+                return (
+                  <tr>
+                    <th scope="row">
+                      Term {t.term} ({t.label})
+                    </th>
+                    <td>{position}</td>
+                    <td>{course ? `${course.code} — ${course.title}` : "— empty —"}</td>
+                    <td>{course?.units ?? "—"}</td>
+                  </tr>
+                );
+              }),
+            )}
+          </tbody>
+        </table>
+      )}
+
+      <h2>What already counts</h2>
+      <ul class="progress-list">
+        {progress.map((group) => (
+          <li class={group.satisfied ? "progress-item done" : "progress-item pending"}>
+            <strong>{group.label}:</strong>{" "}
+            {group.assigned.length > 0 ? group.assigned.map((c) => c.code).join(", ") : "none yet"}
+            {group.satisfied ? " ✓" : ""}
+          </li>
+        ))}
+      </ul>
+
+      {completedTerms.length > 0 && (
+        <p>
+          Need to fix a past term?{" "}
+          {completedTerms.map((t, i) => (
+            <>
+              {i > 0 ? ", " : ""}
+              <a href={`/select/?term=${t.term}`}>Term {t.term}</a>
+            </>
+          ))}
+        </p>
+      )}
+    </main>
+  </body>
+</html>
