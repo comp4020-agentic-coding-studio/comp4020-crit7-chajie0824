@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import Database from "better-sqlite3";
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { courseSeed } from "./courses-seed";
@@ -42,6 +42,7 @@ for (const course of courseSeed) {
         semester: course.semester,
         requirementGroup: course.requirementGroup,
         rating: course.rating,
+        termSpan: course.termSpan,
       },
     })
     .run();
@@ -90,9 +91,34 @@ export function assignCourse(term: number, position: number, courseCode: string)
     .get();
 }
 
+// Clearing one half of a term-spanning course (see Course.termSpan) would
+// otherwise leave an orphan half representing a project that no longer
+// makes sense on its own — so clearing a slot also clears the paired slot
+// when the course being removed spans more than one term.
 export function clearSlot(term: number, position: number): void {
+  const entry = db
+    .select()
+    .from(planEntries)
+    .where(and(eq(planEntries.term, term), eq(planEntries.position, position)))
+    .get();
+
   db
     .delete(planEntries)
     .where(and(eq(planEntries.term, term), eq(planEntries.position, position)))
+    .run();
+
+  if (!entry) return;
+
+  const course = db.select().from(courses).where(eq(courses.code, entry.courseCode)).get();
+  if (!course || course.termSpan <= 1) return;
+
+  db
+    .delete(planEntries)
+    .where(
+      and(
+        eq(planEntries.courseCode, entry.courseCode),
+        or(eq(planEntries.term, term - 1), eq(planEntries.term, term + 1)),
+      ),
+    )
     .run();
 }

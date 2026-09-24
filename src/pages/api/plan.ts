@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
-import { assignCourse, clearSlot, listPlan, listPrerequisites } from "../../lib/db";
+import { assignCourse, clearSlot, listCourses, listPlan, listPrerequisites } from "../../lib/db";
 import { completedBefore, missingPrereqs } from "../../lib/prerequisites";
-import { duplicateEntry } from "../../lib/plan-integrity";
+import { checkDuplicate } from "../../lib/plan-integrity";
 
 export const POST: APIRoute = async ({ request, redirect }) => {
   const form = await request.formData();
@@ -16,12 +16,16 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     if (courseCode) {
       // The <select> already disables locked/duplicate options, but a
       // direct POST must not be able to bypass either rule.
+      const course = listCourses().find((c) => c.code === courseCode);
       const plan = listPlan();
 
-      const dup = duplicateEntry(courseCode, plan, term, position);
-      if (dup) {
-        const separator = returnTo.includes("?") ? "&" : "?";
-        return redirect(`${returnTo}${separator}duplicate=${encodeURIComponent(courseCode)}`, 303);
+      if (course) {
+        const dup = checkDuplicate(course, plan, term, position);
+        if (dup.blocked) {
+          const separator = returnTo.includes("?") ? "&" : "?";
+          const param = dup.reason === "non-consecutive" ? "nonconsecutive" : "duplicate";
+          return redirect(`${returnTo}${separator}${param}=${encodeURIComponent(courseCode)}`, 303);
+        }
       }
 
       const completed = completedBefore(plan, term);
