@@ -81,7 +81,10 @@ const STATUS_LABEL: Record<string, string> = {
                 still need: {group.required.filter((c) => !group.assigned.includes(c)).map((c) => c.code).join(", ")}
               </span>
             ) : (
-              <span>choose 1 of: {group.required.map((c) => c.code).join(", ")}</span>
+              <span>
+                choose {group.count} of: {group.required.map((c) => c.code).join(", ")}
+                {group.assigned.length > 0 && ` (have ${group.assigned.map((c) => c.code).join(", ")})`}
+              </span>
             )}
           </li>
         ))}
