@@ -329,11 +329,33 @@ nav[aria-label="site"] a[aria-current="page"] {
   background: #f7f8fd;
 }
 
+.slot-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.slot-actions form:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
 .plan-grid form {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
   min-width: 0;
+}
+
+.btn-clear {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.btn-clear:hover {
+  background: #f7f8fd;
+  color: var(--text);
 }
 
 .plan-grid select {

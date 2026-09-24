@@ -102,49 +102,60 @@ const semester = termSemester(term);
                   <tr class={isConflict ? "slot conflict" : "slot"}>
                     <th scope="row">{position}</th>
                     <td>
-                      <form method="post" action="/api/plan">
-                        <input type="hidden" name="term" value={term} />
-                        <input type="hidden" name="position" value={position} />
-                        <input type="hidden" name="returnTo" value={returnTo} />
-                        <label class="visually-hidden" for={`select-${position}`}>
-                          Term {term}, slot {position}
-                        </label>
-                        <select id={`select-${position}`} name="courseCode">
-                          <option value="">— empty —</option>
-                          {REQUIREMENT_GROUPS.map((group) => (
-                            <optgroup label={group.label}>
-                              {courses
-                                .filter((c) => c.requirementGroup === group.key)
-                                .map((c) => {
-                                  const isSelf = c.code === course?.code;
-                                  const missing = missingFor(c.code);
-                                  const dup = checkDuplicate(c, plan, term, position);
-                                  const offSemester = semesterConflict(c, term);
-                                  const locked = (missing.length > 0 || dup.blocked || offSemester) && !isSelf;
-                                  const icon = !locked ? "" : dup.blocked ? "🔁 " : missing.length > 0 ? "🔒 " : "📅 ";
-                                  const reason = !locked
-                                    ? ""
-                                    : dup.blocked
-                                      ? dup.reason === "non-consecutive"
-                                        ? ` — must be consecutive with Term ${dup.otherEntry?.term}`
-                                        : ` — already in Term ${dup.otherEntry?.term}`
-                                      : missing.length > 0
-                                        ? ` — needs ${missing.join(", ")}`
-                                        : ` — not offered in ${semester}`;
-                                  return (
-                                    <option value={c.code} selected={isSelf} disabled={locked}>
-                                      {icon}
-                                      {c.code} — {c.title} ({c.semester}) · ★{c.rating.toFixed(1)}
-                                      {c.termSpan > 1 ? " · spans 2 terms" : ""}
-                                      {reason}
-                                    </option>
-                                  );
-                                })}
-                            </optgroup>
-                          ))}
-                        </select>
-                        <button>Set</button>
-                      </form>
+                      <div class="slot-actions">
+                        <form method="post" action="/api/plan">
+                          <input type="hidden" name="term" value={term} />
+                          <input type="hidden" name="position" value={position} />
+                          <input type="hidden" name="returnTo" value={returnTo} />
+                          <label class="visually-hidden" for={`select-${position}`}>
+                            Term {term}, slot {position}
+                          </label>
+                          <select id={`select-${position}`} name="courseCode">
+                            <option value="">— empty —</option>
+                            {REQUIREMENT_GROUPS.map((group) => (
+                              <optgroup label={group.label}>
+                                {courses
+                                  .filter((c) => c.requirementGroup === group.key)
+                                  .map((c) => {
+                                    const isSelf = c.code === course?.code;
+                                    const missing = missingFor(c.code);
+                                    const dup = checkDuplicate(c, plan, term, position);
+                                    const offSemester = semesterConflict(c, term);
+                                    const locked = (missing.length > 0 || dup.blocked || offSemester) && !isSelf;
+                                    const icon = !locked ? "" : dup.blocked ? "🔁 " : missing.length > 0 ? "🔒 " : "📅 ";
+                                    const reason = !locked
+                                      ? ""
+                                      : dup.blocked
+                                        ? dup.reason === "non-consecutive"
+                                          ? ` — must be consecutive with Term ${dup.otherEntry?.term}`
+                                          : ` — already in Term ${dup.otherEntry?.term}`
+                                        : missing.length > 0
+                                          ? ` — needs ${missing.join(", ")}`
+                                          : ` — not offered in ${semester}`;
+                                    return (
+                                      <option value={c.code} selected={isSelf} disabled={locked}>
+                                        {icon}
+                                        {c.code} — {c.title} ({c.semester}) · ★{c.rating.toFixed(1)}
+                                        {c.termSpan > 1 ? " · spans 2 terms" : ""}
+                                        {reason}
+                                      </option>
+                                    );
+                                  })}
+                              </optgroup>
+                            ))}
+                          </select>
+                          <button>Set</button>
+                        </form>
+                        {course && (
+                          <form method="post" action="/api/plan" class="clear-form">
+                            <input type="hidden" name="term" value={term} />
+                            <input type="hidden" name="position" value={position} />
+                            <input type="hidden" name="returnTo" value={returnTo} />
+                            <input type="hidden" name="courseCode" value="" />
+                            <button type="submit" class="btn-clear">Clear</button>
+                          </form>
+                        )}
+                      </div>
                       {course && (
                         <p class="slot-detail">
                           {course.units} units · ★{course.rating.toFixed(1)}.
