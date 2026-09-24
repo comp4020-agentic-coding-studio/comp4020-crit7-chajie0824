@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
-import { assignCourse, clearSlot } from "../../lib/db";
+import { assignCourse, clearSlot, listPlan, listPrerequisites } from "../../lib/db";
+import { completedBefore, missingPrereqs } from "../../lib/prerequisites";
 
 export const POST: APIRoute = async ({ request, redirect }) => {
   const form = await request.formData();
@@ -12,6 +13,14 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 
   if (validSlot) {
     if (courseCode) {
+      // The <select> already disables locked options, but a direct POST
+      // must not be able to bypass the prerequisite rule.
+      const completed = completedBefore(listPlan(), term);
+      const missing = missingPrereqs(courseCode, listPrerequisites(), completed);
+      if (missing.length > 0) {
+        const separator = returnTo.includes("?") ? "&" : "?";
+        return redirect(`${returnTo}${separator}locked=${encodeURIComponent(courseCode)}`, 303);
+      }
       assignCourse(term, position, courseCode);
     } else {
       clearSlot(term, position);
