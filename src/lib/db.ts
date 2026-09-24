@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { courseSeed } from "./courses-seed";
-import { type Course, type PlanEntry, courses, planEntries } from "./schema";
+import { type Course, type PlanEntry, courses, planEntries, settings } from "./schema";
 
 // One SQLite file is the app's whole persistent state. In production
 // fly.toml points DATABASE_PATH at the machine's volume (/data), which is
@@ -30,6 +30,10 @@ migrate(db, { migrationsFolder: "./drizzle" });
 // step and lets editing courseSeed.ts take effect on the next deploy.
 db.insert(courses).values([...courseSeed]).onConflictDoNothing().run();
 
+// currentTerm starts wherever the student actually is; seeded once, then
+// only ever changed via setCurrentTerm.
+db.insert(settings).values({ id: 1, currentTerm: 3 }).onConflictDoNothing().run();
+
 export type { Course, PlanEntry };
 
 export function listCourses(): Course[] {
@@ -40,23 +44,31 @@ export function listPlan(): PlanEntry[] {
   return db.select().from(planEntries).all();
 }
 
-// A slot is (year, semester, position); the unique index on that triple is
-// what makes this an upsert rather than a second row piling into the slot.
-export function assignCourse(year: number, semester: string, position: number, courseCode: string): PlanEntry {
+export function getCurrentTerm(): number {
+  return db.select().from(settings).get()?.currentTerm ?? 1;
+}
+
+export function setCurrentTerm(term: number): void {
+  db.update(settings).set({ currentTerm: term }).where(eq(settings.id, 1)).run();
+}
+
+// A slot is (term, position); the unique index on that pair is what makes
+// this an upsert rather than a second row piling into the slot.
+export function assignCourse(term: number, position: number, courseCode: string): PlanEntry {
   return db
     .insert(planEntries)
-    .values({ year, semester, position, courseCode })
+    .values({ term, position, courseCode })
     .onConflictDoUpdate({
-      target: [planEntries.year, planEntries.semester, planEntries.position],
+      target: [planEntries.term, planEntries.position],
       set: { courseCode },
     })
     .returning()
     .get();
 }
 
-export function clearSlot(year: number, semester: string, position: number): void {
+export function clearSlot(term: number, position: number): void {
   db
     .delete(planEntries)
-    .where(and(eq(planEntries.year, year), eq(planEntries.semester, semester), eq(planEntries.position, position)))
+    .where(and(eq(planEntries.term, term), eq(planEntries.position, position)))
     .run();
 }

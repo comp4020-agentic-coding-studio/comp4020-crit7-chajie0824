@@ -22,6 +22,13 @@
       "when": 1790239169698,
       "tag": "0002_hard_radioactive_man",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790400000000,
+      "tag": "0003_curvy_shadow_king",
+      "breakpoints": true
     }
   ]
 }
