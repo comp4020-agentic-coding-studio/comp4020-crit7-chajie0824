@@ -50,3 +50,26 @@ export function checkDuplicate(
 
   return { blocked: false };
 }
+
+export interface ProposedSlot {
+  position: number;
+  courseCode: string | null;
+}
+
+// Builds the plan to validate a batch of same-term slot edits against:
+// every row from OTHER terms passes through unchanged; this term's 4
+// positions are replaced by the proposed batch (a null courseCode
+// contributes no row). This is what lets checkDuplicate see an in-flight
+// swap between two slots of the same term as already resolved, instead of
+// comparing a proposed value against this term's stale persisted rows.
+export function buildMergedPlan(
+  plan: readonly PlanEntry[],
+  term: number,
+  proposed: readonly ProposedSlot[],
+): PlanEntry[] {
+  const others = plan.filter((p) => p.term !== term);
+  const replaced = proposed
+    .filter((s): s is { position: number; courseCode: string } => s.courseCode !== null)
+    .map((s) => ({ id: -1, term, position: s.position, courseCode: s.courseCode, createdAt: "" }));
+  return [...others, ...replaced];
+}
