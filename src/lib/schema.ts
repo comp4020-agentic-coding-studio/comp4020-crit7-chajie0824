@@ -28,6 +28,14 @@ export const courses = sqliteTable("courses", {
   // way the reference 教务系统 screenshots do. Seeded with plausible demo
   // values so the UI has something to show; not a real ANU data point.
   rating: real().notNull(),
+  // How many consecutive terms one enrolment in this course occupies.
+  // Almost everything is 1; COMP8715 is a year-long project taken across
+  // two consecutive semesters (6 units each, 12 total) — see
+  // src/lib/plan-integrity.ts for how that's enforced. Defaulted here (not
+  // left to application code) so the migration can add the column with a
+  // real default instead of hitting SQLite's NOT-NULL-without-default
+  // restriction on an already-populated table.
+  termSpan: int("term_span").notNull().default(1),
 });
 
 export type Course = typeof courses.$inferSelect;
