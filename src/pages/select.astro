@@ -1,7 +1,7 @@
 ---
 import { getCurrentTerm, listCourses, listPlan, listPrerequisites } from "../lib/db";
 import { completedBefore, missingPrereqs } from "../lib/prerequisites";
-import { duplicateEntry } from "../lib/plan-integrity";
+import { checkDuplicate } from "../lib/plan-integrity";
 import { REQUIREMENT_GROUPS, computeProgress } from "../lib/requirements";
 import { termLabel, termSemester } from "../lib/terms";
 import "../styles.css";
@@ -12,6 +12,7 @@ const term = requestedTerm >= 1 && requestedTerm <= 4 ? requestedTerm : currentT
 const returnTo = `/select/?term=${term}`;
 const lockedCode = Astro.url.searchParams.get("locked");
 const duplicateCode = Astro.url.searchParams.get("duplicate");
+const nonconsecutiveCode = Astro.url.searchParams.get("nonconsecutive");
 
 const courses = listCourses();
 const plan = listPlan();
@@ -74,9 +75,15 @@ function conflicts(course: { semester: string } | undefined): boolean {
         </p>
       )}
 
+      {nonconsecutiveCode && (
+        <p class="banner banner-warning">
+          🔁 <strong>{nonconsecutiveCode}</strong> spans two terms — it must be taken in two <em>consecutive</em> terms, not added here.
+        </p>
+      )}
+
       <div class="select-layout">
         <div class="card">
-          <table class="plan-grid">
+          <table class="plan-grid slot-grid">
             <caption class="visually-hidden">Term {term} slots</caption>
             <thead>
               <tr>
@@ -110,17 +117,20 @@ function conflicts(course: { semester: string } | undefined): boolean {
                                 .map((c) => {
                                   const isSelf = c.code === course?.code;
                                   const missing = missingFor(c.code);
-                                  const dup = duplicateEntry(c.code, plan, term, position);
-                                  const locked = (missing.length > 0 || !!dup) && !isSelf;
-                                  const reason = dup
-                                    ? ` — already in Term ${dup.term}`
+                                  const dup = checkDuplicate(c, plan, term, position);
+                                  const locked = (missing.length > 0 || dup.blocked) && !isSelf;
+                                  const reason = dup.blocked
+                                    ? dup.reason === "non-consecutive"
+                                      ? ` — must be consecutive with Term ${dup.otherEntry?.term}`
+                                      : ` — already in Term ${dup.otherEntry?.term}`
                                     : missing.length > 0
                                       ? ` — needs ${missing.join(", ")}`
                                       : "";
                                   return (
                                     <option value={c.code} selected={isSelf} disabled={locked}>
-                                      {locked ? (dup ? "🔁 " : "🔒 ") : ""}
+                                      {locked ? (dup.blocked ? "🔁 " : "🔒 ") : ""}
                                       {c.code} — {c.title} ({c.semester}) · ★{c.rating.toFixed(1)}
+                                      {c.termSpan > 1 ? " · spans 2 terms" : ""}
                                       {locked ? reason : ""}
                                     </option>
                                   );
@@ -133,6 +143,7 @@ function conflicts(course: { semester: string } | undefined): boolean {
                       {course && (
                         <p class="slot-detail">
                           {course.units} units · ★{course.rating.toFixed(1)}.
+                          {course.termSpan > 1 && <strong> Spans 2 consecutive terms.</strong>}
                           {isConflict && <strong> Not offered in {semester}.</strong>}
                           {courseMissing.length > 0 && (
                             <strong> 🔒 Still needs: {courseMissing.join(", ")}.</strong>
@@ -161,7 +172,9 @@ function conflicts(course: { semester: string } | undefined): boolean {
                       {group.required.filter((c) => !group.assigned.includes(c)).map((c) => c.code).join(", ")}
                     </span>
                   ) : (
-                    <span>one of {group.required.map((c) => c.code).join(", ")}</span>
+                    <span>
+                      {group.count === 1 ? "one of" : `choose ${group.count} of`} {group.required.map((c) => c.code).join(", ")}
+                    </span>
                   )}
                 </li>
               ))}
