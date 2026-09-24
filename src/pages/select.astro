@@ -1,6 +1,7 @@
 ---
 import { getCurrentTerm, listCourses, listPlan, listPrerequisites } from "../lib/db";
 import { completedBefore, missingPrereqs } from "../lib/prerequisites";
+import { duplicateEntry } from "../lib/plan-integrity";
 import { REQUIREMENT_GROUPS, computeProgress } from "../lib/requirements";
 import { termLabel, termSemester } from "../lib/terms";
 import "../styles.css";
@@ -10,6 +11,7 @@ const requestedTerm = Number(Astro.url.searchParams.get("term"));
 const term = requestedTerm >= 1 && requestedTerm <= 4 ? requestedTerm : currentTerm;
 const returnTo = `/select/?term=${term}`;
 const lockedCode = Astro.url.searchParams.get("locked");
+const duplicateCode = Astro.url.searchParams.get("duplicate");
 
 const courses = listCourses();
 const plan = listPlan();
@@ -66,6 +68,12 @@ function conflicts(course: { semester: string } | undefined): boolean {
         </p>
       )}
 
+      {duplicateCode && (
+        <p class="banner banner-warning">
+          🔁 <strong>{duplicateCode}</strong> is already planned in another slot — a course can only count once.
+        </p>
+      )}
+
       <div class="select-layout">
         <div class="card">
           <table class="plan-grid">
@@ -100,13 +108,20 @@ function conflicts(course: { semester: string } | undefined): boolean {
                               {courses
                                 .filter((c) => c.requirementGroup === group.key)
                                 .map((c) => {
+                                  const isSelf = c.code === course?.code;
                                   const missing = missingFor(c.code);
-                                  const locked = missing.length > 0 && c.code !== course?.code;
+                                  const dup = duplicateEntry(c.code, plan, term, position);
+                                  const locked = (missing.length > 0 || !!dup) && !isSelf;
+                                  const reason = dup
+                                    ? ` — already in Term ${dup.term}`
+                                    : missing.length > 0
+                                      ? ` — needs ${missing.join(", ")}`
+                                      : "";
                                   return (
-                                    <option value={c.code} selected={c.code === course?.code} disabled={locked}>
-                                      {locked ? "🔒 " : ""}
-                                      {c.code} — {c.title} ({c.semester})
-                                      {locked ? ` — needs ${missing.join(", ")}` : ""}
+                                    <option value={c.code} selected={isSelf} disabled={locked}>
+                                      {locked ? (dup ? "🔁 " : "🔒 ") : ""}
+                                      {c.code} — {c.title} ({c.semester}) · ★{c.rating.toFixed(1)}
+                                      {locked ? reason : ""}
                                     </option>
                                   );
                                 })}
@@ -117,7 +132,7 @@ function conflicts(course: { semester: string } | undefined): boolean {
                       </form>
                       {course && (
                         <p class="slot-detail">
-                          {course.units} units.
+                          {course.units} units · ★{course.rating.toFixed(1)}.
                           {isConflict && <strong> Not offered in {semester}.</strong>}
                           {courseMissing.length > 0 && (
                             <strong> 🔒 Still needs: {courseMissing.join(", ")}.</strong>
