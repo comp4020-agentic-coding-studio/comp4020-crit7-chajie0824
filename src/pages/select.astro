@@ -14,6 +14,8 @@ const lockedCode = Astro.url.searchParams.get("locked");
 const duplicateCode = Astro.url.searchParams.get("duplicate");
 const nonconsecutiveCode = Astro.url.searchParams.get("nonconsecutive");
 const notOfferedCode = Astro.url.searchParams.get("notoffered");
+const slotParam = Astro.url.searchParams.get("slot");
+const slotPrefix = slotParam ? `Slot ${slotParam}: ` : "";
 
 const courses = listCourses();
 const plan = listPlan();
@@ -60,118 +62,109 @@ const semester = termSemester(term);
 
       {lockedCode && (
         <p class="banner banner-warning">
-          🔒 <strong>{lockedCode}</strong> needs its prerequisite(s) completed first — not added.
+          🔒 {slotPrefix}<strong>{lockedCode}</strong> needs its prerequisite(s) completed first — nothing was saved.
         </p>
       )}
 
       {duplicateCode && (
         <p class="banner banner-warning">
-          🔁 <strong>{duplicateCode}</strong> is already planned in another slot — a course can only count once.
+          🔁 {slotPrefix}<strong>{duplicateCode}</strong> is already planned in another slot — a course can only count once. Nothing was saved.
         </p>
       )}
 
       {nonconsecutiveCode && (
         <p class="banner banner-warning">
-          🔁 <strong>{nonconsecutiveCode}</strong> spans two terms — it must be taken in two <em>consecutive</em> terms, not added here.
+          🔁 {slotPrefix}<strong>{nonconsecutiveCode}</strong> spans two terms — it must be taken in two <em>consecutive</em> terms. Nothing was saved.
         </p>
       )}
 
       {notOfferedCode && (
         <p class="banner banner-warning">
-          📅 <strong>{notOfferedCode}</strong> isn't offered in {semester} — not added.
+          📅 {slotPrefix}<strong>{notOfferedCode}</strong> isn't offered in {semester}. Nothing was saved.
         </p>
       )}
 
       <div class="select-layout">
         <div class="card">
-          <table class="plan-grid slot-grid">
-            <caption class="visually-hidden">Term {term} slots</caption>
-            <thead>
-              <tr>
-                <th scope="col">Slot</th>
-                <th scope="col">Course</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[1, 2, 3, 4].map((position) => {
-                const entry = planByPosition.get(position);
-                const course = entry ? courseByCode.get(entry.courseCode) : undefined;
-                const isConflict = course ? semesterConflict(course, term) : false;
-                const courseMissing = course ? missingFor(course.code) : [];
-                return (
-                  <tr class={isConflict ? "slot conflict" : "slot"}>
-                    <th scope="row">{position}</th>
-                    <td>
-                      <div class="slot-actions">
-                        <form method="post" action="/api/plan">
-                          <input type="hidden" name="term" value={term} />
-                          <input type="hidden" name="position" value={position} />
-                          <input type="hidden" name="returnTo" value={returnTo} />
-                          <label class="visually-hidden" for={`select-${position}`}>
-                            Term {term}, slot {position}
-                          </label>
-                          <select id={`select-${position}`} name="courseCode">
-                            <option value="">— empty —</option>
-                            {REQUIREMENT_GROUPS.map((group) => (
-                              <optgroup label={group.label}>
-                                {courses
-                                  .filter((c) => c.requirementGroup === group.key)
-                                  .map((c) => {
-                                    const isSelf = c.code === course?.code;
-                                    const missing = missingFor(c.code);
-                                    const dup = checkDuplicate(c, plan, term, position);
-                                    const offSemester = semesterConflict(c, term);
-                                    const locked = (missing.length > 0 || dup.blocked || offSemester) && !isSelf;
-                                    const icon = !locked ? "" : dup.blocked ? "🔁 " : missing.length > 0 ? "🔒 " : "📅 ";
-                                    const reason = !locked
-                                      ? ""
-                                      : dup.blocked
-                                        ? dup.reason === "non-consecutive"
-                                          ? ` — must be consecutive with Term ${dup.otherEntry?.term}`
-                                          : ` — already in Term ${dup.otherEntry?.term}`
-                                        : missing.length > 0
-                                          ? ` — needs ${missing.join(", ")}`
-                                          : ` — not offered in ${semester}`;
-                                    return (
-                                      <option value={c.code} selected={isSelf} disabled={locked}>
-                                        {icon}
-                                        {c.code} — {c.title} ({c.semester}) · ★{c.rating.toFixed(1)}
-                                        {c.termSpan > 1 ? " · spans 2 terms" : ""}
-                                        {reason}
-                                      </option>
-                                    );
-                                  })}
-                              </optgroup>
-                            ))}
-                          </select>
-                          <button>Set</button>
-                        </form>
+          <form method="post" action="/api/plan">
+            <input type="hidden" name="term" value={term} />
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <table class="plan-grid slot-grid">
+              <caption class="visually-hidden">Term {term} slots</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Slot</th>
+                  <th scope="col">Course</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[1, 2, 3, 4].map((position) => {
+                  const entry = planByPosition.get(position);
+                  const course = entry ? courseByCode.get(entry.courseCode) : undefined;
+                  const isConflict = course ? semesterConflict(course, term) : false;
+                  const courseMissing = course ? missingFor(course.code) : [];
+                  return (
+                    <tr class={isConflict ? "slot conflict" : "slot"}>
+                      <th scope="row">{position}</th>
+                      <td>
+                        <label class="visually-hidden" for={`select-${position}`}>
+                          Term {term}, slot {position}
+                        </label>
+                        <select id={`select-${position}`} name={`courseCode-${position}`}>
+                          <option value="">— empty —</option>
+                          {REQUIREMENT_GROUPS.map((group) => (
+                            <optgroup label={group.label}>
+                              {courses
+                                .filter((c) => c.requirementGroup === group.key)
+                                .map((c) => {
+                                  const isSelf = c.code === course?.code;
+                                  const missing = missingFor(c.code);
+                                  const dup = checkDuplicate(c, plan, term, position);
+                                  const offSemester = semesterConflict(c, term);
+                                  const locked = (missing.length > 0 || dup.blocked || offSemester) && !isSelf;
+                                  const icon = !locked ? "" : dup.blocked ? "🔁 " : missing.length > 0 ? "🔒 " : "📅 ";
+                                  const reason = !locked
+                                    ? ""
+                                    : dup.blocked
+                                      ? dup.reason === "non-consecutive"
+                                        ? ` — must be consecutive with Term ${dup.otherEntry?.term}`
+                                        : ` — already in Term ${dup.otherEntry?.term}`
+                                      : missing.length > 0
+                                        ? ` — needs ${missing.join(", ")}`
+                                        : ` — not offered in ${semester}`;
+                                  return (
+                                    <option value={c.code} selected={isSelf} disabled={locked}>
+                                      {icon}
+                                      {c.code} — {c.title} ({c.semester}) · ★{c.rating.toFixed(1)}
+                                      {c.termSpan > 1 ? " · spans 2 terms" : ""}
+                                      {reason}
+                                    </option>
+                                  );
+                                })}
+                            </optgroup>
+                          ))}
+                        </select>
                         {course && (
-                          <form method="post" action="/api/plan" class="clear-form">
-                            <input type="hidden" name="term" value={term} />
-                            <input type="hidden" name="position" value={position} />
-                            <input type="hidden" name="returnTo" value={returnTo} />
-                            <input type="hidden" name="courseCode" value="" />
-                            <button type="submit" class="btn-clear">Clear</button>
-                          </form>
+                          <p class="slot-detail">
+                            {course.units} units · ★{course.rating.toFixed(1)}.
+                            {course.termSpan > 1 && <strong> Spans 2 consecutive terms.</strong>}
+                            {isConflict && <strong> Not offered in {semester}.</strong>}
+                            {courseMissing.length > 0 && (
+                              <strong> 🔒 Still needs: {courseMissing.join(", ")}.</strong>
+                            )}
+                          </p>
                         )}
-                      </div>
-                      {course && (
-                        <p class="slot-detail">
-                          {course.units} units · ★{course.rating.toFixed(1)}.
-                          {course.termSpan > 1 && <strong> Spans 2 consecutive terms.</strong>}
-                          {isConflict && <strong> Not offered in {semester}.</strong>}
-                          {courseMissing.length > 0 && (
-                            <strong> 🔒 Still needs: {courseMissing.join(", ")}.</strong>
-                          )}
-                        </p>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <button type="submit" class="btn-save-all">Save all</button>
+          </form>
+          <p class="slot-detail">
+            Pick "— empty —" in a slot to clear it, then Save all.
+          </p>
         </div>
 
         <aside class="requirement-panel card" aria-label="Outstanding requirements">
