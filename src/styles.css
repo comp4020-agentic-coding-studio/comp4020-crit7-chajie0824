@@ -329,35 +329,6 @@ nav[aria-label="site"] a[aria-current="page"] {
   background: #f7f8fd;
 }
 
-.slot-actions {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-}
-
-.slot-actions form:first-child {
-  flex: 1;
-  min-width: 0;
-}
-
-.plan-grid form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  min-width: 0;
-}
-
-.btn-clear {
-  background: transparent;
-  color: var(--muted);
-  border: 1px solid var(--border);
-}
-
-.btn-clear:hover {
-  background: #f7f8fd;
-  color: var(--text);
-}
-
 .plan-grid select {
   width: 100%;
   min-width: 0;
@@ -367,10 +338,10 @@ nav[aria-label="site"] a[aria-current="page"] {
   border: 1px solid var(--border);
 }
 
-.plan-grid button {
-  align-self: flex-start;
-  padding: 0.35rem 0.9rem;
-  font-size: 0.85rem;
+.btn-save-all {
+  margin-top: 0.75rem;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.9rem;
 }
 
 .slot-detail {
