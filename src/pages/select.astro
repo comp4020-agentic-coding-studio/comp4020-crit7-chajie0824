@@ -1,7 +1,7 @@
 ---
 import { getCurrentTerm, listCourses, listPlan, listPrerequisites } from "../lib/db";
 import { completedBefore, missingPrereqs } from "../lib/prerequisites";
-import { checkDuplicate, semesterConflict } from "../lib/plan-integrity";
+import { checkDuplicate, pairLock, semesterConflict } from "../lib/plan-integrity";
 import { REQUIREMENT_GROUPS, computeProgress } from "../lib/requirements";
 import { termLabel, termSemester } from "../lib/terms";
 import "../styles.css";
@@ -14,6 +14,8 @@ const lockedCode = Astro.url.searchParams.get("locked");
 const duplicateCode = Astro.url.searchParams.get("duplicate");
 const nonconsecutiveCode = Astro.url.searchParams.get("nonconsecutive");
 const notOfferedCode = Astro.url.searchParams.get("notoffered");
+const pairedCode = Astro.url.searchParams.get("paired");
+const noRoomCode = Astro.url.searchParams.get("noroom");
 const slotParam = Astro.url.searchParams.get("slot");
 const slotPrefix = slotParam ? `Slot ${slotParam}: ` : "";
 
@@ -84,6 +86,18 @@ const semester = termSemester(term);
         </p>
       )}
 
+      {pairedCode && (
+        <p class="banner banner-warning">
+          🧩 {slotPrefix}<strong>{pairedCode}</strong> can't be placed here — this slot is locked as one half of a 2-term course. Clear it (which clears both halves) if you want to change it. Nothing was saved.
+        </p>
+      )}
+
+      {noRoomCode && (
+        <p class="banner banner-warning">
+          🧩 {slotPrefix}<strong>{noRoomCode}</strong> spans two consecutive terms and needs slot {slotParam} free in an adjacent term for its second half, but it isn't available in either direction. Nothing was saved.
+        </p>
+      )}
+
       <div class="select-layout">
         <div class="card">
           <form method="post" action="/api/plan">
@@ -103,6 +117,7 @@ const semester = termSemester(term);
                   const course = entry ? courseByCode.get(entry.courseCode) : undefined;
                   const isConflict = course ? semesterConflict(course, term) : false;
                   const courseMissing = course ? missingFor(course.code) : [];
+                  const pairInfo = pairLock(plan, courses, term, position);
                   return (
                     <tr class={isConflict ? "slot conflict" : "slot"}>
                       <th scope="row">{position}</th>
@@ -121,8 +136,18 @@ const semester = termSemester(term);
                                   const missing = missingFor(c.code);
                                   const dup = checkDuplicate(c, plan, term, position);
                                   const offSemester = semesterConflict(c, term);
-                                  const locked = (missing.length > 0 || dup.blocked || offSemester) && !isSelf;
-                                  const icon = !locked ? "" : dup.blocked ? "🔁 " : missing.length > 0 ? "🔒 " : "📅 ";
+                                  const locked =
+                                    (missing.length > 0 || dup.blocked || offSemester || pairInfo.blocked) &&
+                                    !isSelf;
+                                  const icon = !locked
+                                    ? ""
+                                    : dup.blocked
+                                      ? "🔁 "
+                                      : missing.length > 0
+                                        ? "🔒 "
+                                        : offSemester
+                                          ? "📅 "
+                                          : "🧩 ";
                                   const reason = !locked
                                     ? ""
                                     : dup.blocked
@@ -131,7 +156,9 @@ const semester = termSemester(term);
                                         : ` — already in Term ${dup.otherEntry?.term}`
                                       : missing.length > 0
                                         ? ` — needs ${missing.join(", ")}`
-                                        : ` — not offered in ${semester}`;
+                                        : offSemester
+                                          ? ` — not offered in ${semester}`
+                                          : ` — locked: paired with Term ${pairInfo.pairedTerm}`;
                                   return (
                                     <option value={c.code} selected={isSelf} disabled={locked}>
                                       {icon}
@@ -147,7 +174,12 @@ const semester = termSemester(term);
                         {course && (
                           <p class="slot-detail">
                             {course.units} units · ★{course.rating.toFixed(1)}.
-                            {course.termSpan > 1 && <strong> Spans 2 consecutive terms.</strong>}
+                            {course.termSpan > 1 && (
+                              <strong>
+                                {" "}Spans 2 consecutive terms — paired with Term {pairInfo.pairedTerm}; clear this
+                                slot to release both.
+                              </strong>
+                            )}
                             {isConflict && <strong> Not offered in {semester}.</strong>}
                             {courseMissing.length > 0 && (
                               <strong> 🔒 Still needs: {courseMissing.join(", ")}.</strong>
