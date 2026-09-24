@@ -15,6 +15,13 @@
       "when": 1790233022497,
       "tag": "0001_jazzy_deathbird",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790239169698,
+      "tag": "0002_hard_radioactive_man",
+      "breakpoints": true
     }
   ]
 }

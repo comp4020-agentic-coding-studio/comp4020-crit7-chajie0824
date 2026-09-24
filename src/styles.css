@@ -7,7 +7,7 @@ body {
 }
 
 main {
-  max-width: 40rem;
+  max-width: 60rem;
   margin: 0 auto;
 }
 
@@ -15,26 +15,73 @@ a {
   color: #0b5fff;
 }
 
-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  margin-block: 1.5rem;
-}
-
-input {
-  flex: 1;
-  min-width: 12rem;
-  padding: 0.4rem 0.6rem;
-  font: inherit;
-}
-
 button {
   padding: 0.4rem 1rem;
   font: inherit;
 }
 
-#messages {
-  padding-inline-start: 1.2rem;
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.summary {
+  padding: 0.75rem 1rem;
+  background: #f2f4f7;
+  border-radius: 0.5rem;
+}
+
+.conflict-summary {
+  color: #b3261e;
+  font-weight: 600;
+}
+
+.plan-grid {
+  width: 100%;
+  border-collapse: collapse;
+  margin-block: 1rem 2rem;
+}
+
+.plan-grid th,
+.plan-grid td {
+  border: 1px solid #d0d5dd;
+  padding: 0.5rem;
+  vertical-align: top;
+  text-align: left;
+}
+
+.plan-grid th[scope="col"] {
+  background: #f2f4f7;
+}
+
+.plan-grid form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.plan-grid select {
+  font: inherit;
+  padding: 0.3rem;
+}
+
+.slot-detail {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+  color: #475467;
+}
+
+.slot.conflict {
+  background: #fdecea;
+}
+
+.slot.conflict .slot-detail strong {
+  color: #b3261e;
 }

@@ -1,8 +1,57 @@
 ---
-import { listMessages } from "../lib/db";
+import { type Course, listCourses, listPlan } from "../lib/db";
 import "../styles.css";
 
-const messages = listMessages();
+const courses = listCourses();
+const plan = listPlan();
+
+const courseByCode = new Map(courses.map((c) => [c.code, c]));
+const planByCell = new Map(plan.map((p) => [`${p.year}-${p.semester}-${p.position}`, p]));
+
+const YEARS = [1, 2] as const;
+const SEMESTERS = ["S1", "S2"] as const;
+const POSITIONS = [1, 2, 3, 4] as const;
+
+const CATEGORY_LABEL: Record<string, string> = {
+  core: "Core",
+  foundational: "Foundational (choose 1)",
+  capstone: "Capstone (choose 1)",
+  specialisation: "Professional Computing",
+};
+
+const SEMESTER_LABEL: Record<string, string> = {
+  S1: "Sem 1",
+  S2: "Sem 2",
+  BOTH: "Both semesters",
+  NONE: "not currently offered",
+};
+
+const categoryOrder = ["core", "foundational", "capstone", "specialisation"];
+const grouped = new Map<string, Course[]>();
+for (const category of categoryOrder) {
+  grouped.set(
+    category,
+    courses.filter((c) => c.category === category),
+  );
+}
+
+// A slot conflicts when the assigned course isn't actually offered in that
+// slot's semester — this is the check ANUHub makes you piece together by
+// hand, one course page at a time.
+function conflicts(course: Course | undefined, semester: string): boolean {
+  if (!course) return false;
+  if (course.semester === "NONE") return true;
+  if (course.semester === "BOTH") return false;
+  return course.semester !== semester;
+}
+
+let totalUnits = 0;
+let conflictCount = 0;
+for (const entry of plan) {
+  const course = courseByCode.get(entry.courseCode);
+  if (course) totalUnits += course.units;
+  if (conflicts(course, entry.semester)) conflictCount++;
+}
 ---
 
 <!doctype html>
@@ -10,44 +59,97 @@ const messages = listMessages();
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>COMP4020 prototype</title>
+    <title>Master of Computing planner</title>
   </head>
   <body>
     <nav aria-label="site">
-      <a href="/">Guestbook</a>
+      <a href="/">Planner</a>
       <a href="/readme/">About</a>
     </nav>
     <main>
-      <h1>Guestbook</h1>
+      <h1>Master of Computing planner</h1>
       <p>
-        A minimal full-stack starter: messages live in SQLite on the machine's
-        volume (state survives a reload and a redeploy), and new messages
-        appear in every open tab over a server-sent-events stream — open this
-        page twice and sign it in one. Replace all of this with your own
-        prototype.
+        A slice of the Master of Computing (7706XMCOMP) course structure —
+        Professional Computing specialisation — laid out as a Year &times;
+        Semester grid. Pick a course for each slot; the plan is saved
+        immediately and survives a reload.
       </p>
-      <form method="post" action="/api/messages">
-        <label for="body">Leave a message</label>
-        <input id="body" name="body" required maxlength="500" />
-        <button>Sign</button>
-      </form>
-      <ul id="messages">
-        {messages.map((message) => <li>{message.body}</li>)}
-      </ul>
+
+      <p class="summary" aria-live="polite">
+        <strong>{totalUnits} units</strong> planned.
+        {
+          conflictCount > 0 ? (
+            <span class="conflict-summary">
+              {conflictCount} slot{conflictCount === 1 ? "" : "s"} assigned a course that isn't offered that
+              semester.
+            </span>
+          ) : (
+            <span>No semester conflicts.</span>
+          )
+        }
+      </p>
+
+      {
+        YEARS.map((year) => (
+          <section aria-labelledby={`year-${year}`}>
+            <h2 id={`year-${year}`}>Year {year}</h2>
+            <table class="plan-grid">
+              <caption class="visually-hidden">Year {year} plan, by semester and slot</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Slot</th>
+                  {SEMESTERS.map((semester) => (
+                    <th scope="col">{SEMESTER_LABEL[semester]}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {POSITIONS.map((position) => (
+                  <tr>
+                    <th scope="row">{position}</th>
+                    {SEMESTERS.map((semester) => {
+                      const entry = planByCell.get(`${year}-${semester}-${position}`);
+                      const course = entry ? courseByCode.get(entry.courseCode) : undefined;
+                      const isConflict = conflicts(course, semester);
+                      return (
+                        <td class={isConflict ? "slot conflict" : "slot"}>
+                          <form method="post" action="/api/plan">
+                            <input type="hidden" name="year" value={year} />
+                            <input type="hidden" name="semester" value={semester} />
+                            <input type="hidden" name="position" value={position} />
+                            <label class="visually-hidden" for={`select-${year}-${semester}-${position}`}>
+                              Year {year} {SEMESTER_LABEL[semester]}, slot {position}
+                            </label>
+                            <select id={`select-${year}-${semester}-${position}`} name="courseCode">
+                              <option value="">— empty —</option>
+                              {categoryOrder.map((category) => (
+                                <optgroup label={CATEGORY_LABEL[category]}>
+                                  {(grouped.get(category) ?? []).map((c) => (
+                                    <option value={c.code} selected={c.code === course?.code}>
+                                      {c.code} — {c.title} ({SEMESTER_LABEL[c.semester]})
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              ))}
+                            </select>
+                            <button>Set</button>
+                          </form>
+                          {course && (
+                            <p class="slot-detail">
+                              {course.units} units.
+                              {isConflict && <strong> Not offered in {SEMESTER_LABEL[semester]}.</strong>}
+                            </p>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        ))
+      }
     </main>
-    <script>
-      // The live half of the demo: subscribe to the SSE stream and prepend
-      // messages as they arrive. The form itself needs none of this — its
-      // POST + redirect re-renders the submitting tab from SQLite; this
-      // stream is how every other tab finds out.
-      const list = document.querySelector("#messages");
-      const source = new EventSource("/api/events");
-      source.addEventListener("message", (event) => {
-        const message = JSON.parse(event.data);
-        const item = document.createElement("li");
-        item.textContent = message.body;
-        list?.prepend(item);
-      });
-    </script>
   </body>
 </html>
