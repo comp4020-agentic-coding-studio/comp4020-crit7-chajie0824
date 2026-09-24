@@ -1,5 +1,6 @@
 ---
-import { getCurrentTerm, listCourses, listPlan } from "../lib/db";
+import { getCurrentTerm, listCourses, listPlan, listPrerequisites } from "../lib/db";
+import { completedBefore, missingPrereqs } from "../lib/prerequisites";
 import { REQUIREMENT_GROUPS, computeProgress } from "../lib/requirements";
 import { termLabel, termSemester } from "../lib/terms";
 import "../styles.css";
@@ -8,15 +9,22 @@ const currentTerm = getCurrentTerm();
 const requestedTerm = Number(Astro.url.searchParams.get("term"));
 const term = requestedTerm >= 1 && requestedTerm <= 4 ? requestedTerm : currentTerm;
 const returnTo = `/select/?term=${term}`;
+const lockedCode = Astro.url.searchParams.get("locked");
 
 const courses = listCourses();
 const plan = listPlan();
+const prereqs = listPrerequisites();
 const courseByCode = new Map(courses.map((c) => [c.code, c]));
 const planByPosition = new Map(
   plan.filter((p) => p.term === term).map((p) => [p.position, p]),
 );
 const progress = computeProgress(courses, plan);
 const outstanding = progress.filter((g) => !g.satisfied);
+
+const completed = completedBefore(plan, term);
+function missingFor(courseCode: string): string[] {
+  return missingPrereqs(courseCode, prereqs, completed);
+}
 
 const semester = termSemester(term);
 function conflicts(course: { semester: string } | undefined): boolean {
@@ -36,8 +44,9 @@ function conflicts(course: { semester: string } | undefined): boolean {
   </head>
   <body>
     <nav aria-label="site">
+      <div class="nav-brand">7706XMCOMP</div>
       <a href="/">Roadmap</a>
-      <a href="/select/">This semester</a>
+      <a href="/select/" aria-current="page">This semester</a>
       <a href="/completed/">Completed</a>
       <a href="/readme/">About</a>
     </nav>
@@ -51,61 +60,79 @@ function conflicts(course: { semester: string } | undefined): boolean {
           : `Editing a ${term < currentTerm ? "past" : "future"} term — jump back to the current one from the roadmap.`}
       </p>
 
-      <div class="select-layout">
-        <table class="plan-grid">
-          <caption class="visually-hidden">Term {term} slots</caption>
-          <thead>
-            <tr>
-              <th scope="col">Slot</th>
-              <th scope="col">Course</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[1, 2, 3, 4].map((position) => {
-              const entry = planByPosition.get(position);
-              const course = entry ? courseByCode.get(entry.courseCode) : undefined;
-              const isConflict = conflicts(course);
-              return (
-                <tr class={isConflict ? "slot conflict" : "slot"}>
-                  <th scope="row">{position}</th>
-                  <td>
-                    <form method="post" action="/api/plan">
-                      <input type="hidden" name="term" value={term} />
-                      <input type="hidden" name="position" value={position} />
-                      <input type="hidden" name="returnTo" value={returnTo} />
-                      <label class="visually-hidden" for={`select-${position}`}>
-                        Term {term}, slot {position}
-                      </label>
-                      <select id={`select-${position}`} name="courseCode">
-                        <option value="">— empty —</option>
-                        {REQUIREMENT_GROUPS.map((group) => (
-                          <optgroup label={group.label}>
-                            {courses
-                              .filter((c) => c.requirementGroup === group.key)
-                              .map((c) => (
-                                <option value={c.code} selected={c.code === course?.code}>
-                                  {c.code} — {c.title} ({c.semester})
-                                </option>
-                              ))}
-                          </optgroup>
-                        ))}
-                      </select>
-                      <button>Set</button>
-                    </form>
-                    {course && (
-                      <p class="slot-detail">
-                        {course.units} units.
-                        {isConflict && <strong> Not offered in {semester}.</strong>}
-                      </p>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {lockedCode && (
+        <p class="banner banner-warning">
+          🔒 <strong>{lockedCode}</strong> needs its prerequisite(s) completed first — not added.
+        </p>
+      )}
 
-        <aside class="requirement-panel" aria-label="Outstanding requirements">
+      <div class="select-layout">
+        <div class="card">
+          <table class="plan-grid">
+            <caption class="visually-hidden">Term {term} slots</caption>
+            <thead>
+              <tr>
+                <th scope="col">Slot</th>
+                <th scope="col">Course</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[1, 2, 3, 4].map((position) => {
+                const entry = planByPosition.get(position);
+                const course = entry ? courseByCode.get(entry.courseCode) : undefined;
+                const isConflict = conflicts(course);
+                const courseMissing = course ? missingFor(course.code) : [];
+                return (
+                  <tr class={isConflict ? "slot conflict" : "slot"}>
+                    <th scope="row">{position}</th>
+                    <td>
+                      <form method="post" action="/api/plan">
+                        <input type="hidden" name="term" value={term} />
+                        <input type="hidden" name="position" value={position} />
+                        <input type="hidden" name="returnTo" value={returnTo} />
+                        <label class="visually-hidden" for={`select-${position}`}>
+                          Term {term}, slot {position}
+                        </label>
+                        <select id={`select-${position}`} name="courseCode">
+                          <option value="">— empty —</option>
+                          {REQUIREMENT_GROUPS.map((group) => (
+                            <optgroup label={group.label}>
+                              {courses
+                                .filter((c) => c.requirementGroup === group.key)
+                                .map((c) => {
+                                  const missing = missingFor(c.code);
+                                  const locked = missing.length > 0 && c.code !== course?.code;
+                                  return (
+                                    <option value={c.code} selected={c.code === course?.code} disabled={locked}>
+                                      {locked ? "🔒 " : ""}
+                                      {c.code} — {c.title} ({c.semester})
+                                      {locked ? ` — needs ${missing.join(", ")}` : ""}
+                                    </option>
+                                  );
+                                })}
+                            </optgroup>
+                          ))}
+                        </select>
+                        <button>Set</button>
+                      </form>
+                      {course && (
+                        <p class="slot-detail">
+                          {course.units} units.
+                          {isConflict && <strong> Not offered in {semester}.</strong>}
+                          {courseMissing.length > 0 && (
+                            <strong> 🔒 Still needs: {courseMissing.join(", ")}.</strong>
+                          )}
+                        </p>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <aside class="requirement-panel card" aria-label="Outstanding requirements">
           <h2>Still to pick</h2>
           {outstanding.length === 0 ? (
             <p>Every requirement is satisfied.</p>

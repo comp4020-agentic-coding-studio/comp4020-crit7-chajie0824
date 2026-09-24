@@ -24,55 +24,58 @@ const progress = computeProgress(courses, completedPlan);
   </head>
   <body>
     <nav aria-label="site">
+      <div class="nav-brand">7706XMCOMP</div>
       <a href="/">Roadmap</a>
       <a href="/select/">This semester</a>
-      <a href="/completed/">Completed</a>
+      <a href="/completed/" aria-current="page">Completed</a>
       <a href="/readme/">About</a>
     </nav>
     <main>
       <h1>Completed courses</h1>
       <p>Everything assigned to a term before the current one — what already counts towards graduation.</p>
 
-      <p class="summary" aria-live="polite">
+      <p class="summary card" aria-live="polite">
         <strong>{totalUnits} units</strong> completed.
       </p>
 
       {completedTerms.length === 0 ? (
         <p>No terms completed yet.</p>
       ) : (
-        <table class="plan-grid">
-          <caption class="visually-hidden">Completed terms and their courses</caption>
-          <thead>
-            <tr>
-              <th scope="col">Term</th>
-              <th scope="col">Slot</th>
-              <th scope="col">Course</th>
-              <th scope="col">Units</th>
-            </tr>
-          </thead>
-          <tbody>
-            {completedTerms.map((t) =>
-              [1, 2, 3, 4].map((position) => {
-                const entry = completedPlan.find((p) => p.term === t.term && p.position === position);
-                const course = entry ? courseByCode.get(entry.courseCode) : undefined;
-                return (
-                  <tr>
-                    <th scope="row">
-                      Term {t.term} ({t.label})
-                    </th>
-                    <td>{position}</td>
-                    <td>{course ? `${course.code} — ${course.title}` : "— empty —"}</td>
-                    <td>{course?.units ?? "—"}</td>
-                  </tr>
-                );
-              }),
-            )}
-          </tbody>
-        </table>
+        <div class="card">
+          <table class="plan-grid">
+            <caption class="visually-hidden">Completed terms and their courses</caption>
+            <thead>
+              <tr>
+                <th scope="col">Term</th>
+                <th scope="col">Slot</th>
+                <th scope="col">Course</th>
+                <th scope="col">Units</th>
+              </tr>
+            </thead>
+            <tbody>
+              {completedTerms.map((t) =>
+                [1, 2, 3, 4].map((position) => {
+                  const entry = completedPlan.find((p) => p.term === t.term && p.position === position);
+                  const course = entry ? courseByCode.get(entry.courseCode) : undefined;
+                  return (
+                    <tr>
+                      <th scope="row">
+                        Term {t.term} ({t.label})
+                      </th>
+                      <td>{position}</td>
+                      <td>{course ? `${course.code} — ${course.title}` : "— empty —"}</td>
+                      <td>{course?.units ?? "—"}</td>
+                    </tr>
+                  );
+                }),
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
 
       <h2>What already counts</h2>
-      <ul class="progress-list">
+      <ul class="progress-list card">
         {progress.map((group) => (
           <li class={group.satisfied ? "progress-item done" : "progress-item pending"}>
             <strong>{group.label}:</strong>{" "}

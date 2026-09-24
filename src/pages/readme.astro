@@ -20,11 +20,12 @@ const html = (await readme.compiledContent()).replace(/(src|href)="public\//g, '
   </head>
   <body>
     <nav aria-label="site">
+      <div class="nav-brand">7706XMCOMP</div>
       <a href="/">Roadmap</a>
       <a href="/select/">This semester</a>
       <a href="/completed/">Completed</a>
-      <a href="/readme/">About</a>
+      <a href="/readme/" aria-current="page">About</a>
     </nav>
-    <main set:html={html} />
+    <main class="card" set:html={html} />
   </body>
 </html>
