@@ -58,3 +58,21 @@ export const settings = sqliteTable("settings", {
 });
 
 export type Settings = typeof settings.$inferSelect;
+
+// Reference data: which courses gate which. Seeded from prerequisitesSeed
+// in db.ts, alongside the catalogue — not user-editable.
+export const prerequisites = sqliteTable(
+  "prerequisites",
+  {
+    id: int().primaryKey({ autoIncrement: true }),
+    courseCode: text("course_code")
+      .notNull()
+      .references(() => courses.code),
+    requiresCode: text("requires_code")
+      .notNull()
+      .references(() => courses.code),
+  },
+  (t) => [uniqueIndex("prerequisites_pair_unique").on(t.courseCode, t.requiresCode)],
+);
+
+export type Prerequisite = typeof prerequisites.$inferSelect;
