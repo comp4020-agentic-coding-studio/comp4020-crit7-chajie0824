@@ -163,6 +163,12 @@ nav[aria-label="site"] a[aria-current="page"] {
   border: 1px solid #f6d9a8;
 }
 
+.banner-success {
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid #b7e4c7;
+}
+
 /* Dashboard-style KPI row on the roadmap — a card per headline number,
    echoing the reference 选课系统 screenshots' summary strip. */
 .stat-cards {

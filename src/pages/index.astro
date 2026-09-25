@@ -22,6 +22,7 @@ const termsDone = TERMS.filter((t) => t.term < currentTerm).length;
 
 const completed = completedBefore(plan, currentTerm);
 const locked = lockedCourses(courses, plan, listPrerequisites(), completed);
+const allSatisfied = progress.every((g) => g.satisfied);
 
 const STATUS_LABEL: Record<string, string> = {
   done: "Done",
@@ -103,6 +104,21 @@ const STATUS_LABEL: Record<string, string> = {
           </div>
         </div>
       </div>
+
+      {!specialisation ? (
+        <p class="banner banner-warning">
+          📋 No specialisation chosen yet — this can only check Core, Foundational, Capstone and University
+          Elective so far. Pick a specialisation above to get a full graduation verdict.
+        </p>
+      ) : allSatisfied ? (
+        <p class="banner banner-success">
+          🎓 Every requirement is satisfied — this plan is enough to graduate.
+        </p>
+      ) : (
+        <p class="banner banner-warning">
+          📋 Not ready to graduate yet — still outstanding: {progress.filter((g) => !g.satisfied).map((g) => g.label).join(", ")}.
+        </p>
+      )}
 
       {surplus.length > 0 && (
         <p class="banner banner-warning">
