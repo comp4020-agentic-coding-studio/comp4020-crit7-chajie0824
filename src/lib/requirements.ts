@@ -39,16 +39,41 @@ export const UNIVERSAL_GROUPS: readonly GroupDef[] = [
 // not a requirement of their own; this app tracks minimums, not max-caps or
 // the separate "12 units must be 8000-level" sub-constraint some
 // specialisations also carry — modelling a full constraint solver is out of
-// scope for a course-planning prototype. PCOM's "list B" keeps the existing
-// representative subset (COMP8600, COMP8880) because the real rule is
-// genuinely open-ended ("any 8000-level COMP course except the project
-// courses"), the same treatment already used for the university-elective
-// group above.
+// scope for a course-planning prototype. PCOM's "list B" real rule is "any
+// 8000-level COMP course except the project courses" — genuinely
+// open-ended in the handbook, but unlike the university-elective group
+// above, this app already seeds every real 8000-level COMP course used by
+// the other 6 specialisations, so list B is simply all of them minus the
+// capstone/project courses (COMP8715, COMP8830), rather than a token
+// subset.
 export const SPECIALISATION_GROUPS: Record<SpecialisationKey, readonly GroupDef[]> = {
   PCOM: [
     { key: "pcom-compulsory", label: "Professional Computing — compulsory", rule: "all", courseCodes: ["COMP6120", "ENGN8100"] },
     { key: "pcom-listA", label: "Professional Computing — elective list", rule: "choose-n", count: 1, courseCodes: ["COMP6240", "COMP6331", "COMP6390", "INFS8004", "INFS8205", "LAWS8445", "MGMT7020", "REGN8014"] },
-    { key: "pcom-listB", label: "Professional Computing — any 8000-level COMP (e.g.)", rule: "min-units", units: 6, courseCodes: ["COMP8600", "COMP8880"] },
+    {
+      key: "pcom-listB",
+      label: "Professional Computing — any 8000-level COMP",
+      rule: "min-units",
+      units: 6,
+      courseCodes: [
+        "COMP8011",
+        "COMP8045",
+        "COMP8260",
+        "COMP8300",
+        "COMP8350",
+        "COMP8410",
+        "COMP8430",
+        "COMP8460",
+        "COMP8539",
+        "COMP8600",
+        "COMP8610",
+        "COMP8620",
+        "COMP8650",
+        "COMP8691",
+        "COMP8712",
+        "COMP8880",
+      ],
+    },
   ],
   ARTIF: [
     { key: "artif-compulsory", label: "Artificial Intelligence — compulsory", rule: "all", courseCodes: ["COMP6262", "COMP6320", "COMP8620", "COMP8691"] },

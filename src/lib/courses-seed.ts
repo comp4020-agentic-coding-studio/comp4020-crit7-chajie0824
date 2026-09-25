@@ -11,12 +11,15 @@ import type { Course } from "./schema";
 // (even more than one specialisation's group) depending on the student's
 // choice.
 //
-// Two lists are still genuinely open-ended in the real handbook even after
-// modelling all 7 specialisations — PCOM's "any 8000-level COMP course"
-// list, and the program's "University Elective" (any ANU course, any
-// faculty) — and are represented by a realistic subset rather than the
-// whole catalogue, same rationale as before: modelling either in full means
-// re-scraping ANUHub, which this prototype is trying to get away from.
+// The program's "University Elective" (any ANU course, any faculty) is
+// still genuinely open-ended in the real handbook and is represented by a
+// realistic subset rather than the whole catalogue — modelling it in full
+// means re-scraping ANUHub for every ANU course, which this prototype is
+// trying to get away from. PCOM's "any 8000-level COMP course" list is
+// NOT a subset, though: since every 8000-level COMP course this app
+// already seeds for the other 6 specialisations is real, PCOM's list B is
+// simply every one of them that isn't a project/capstone course — see
+// requirements.ts's pcom-listB for the exact set and reasoning.
 //
 // `rating` is illustrative demo data (see schema.ts) — not sourced from
 // ANU. `semester` defaults to "BOTH" for courses whose specific offering
@@ -94,6 +97,9 @@ export const courseSeed: readonly Course[] = [
   { code: "COMP6490", title: "Document Analysis", units: 6, semester: "BOTH", rating: 3.9, termSpan: 1 },
   { code: "COMP6670", title: "Introduction to Machine Learning", units: 6, semester: "BOTH", rating: 4.4, termSpan: 1 },
   { code: "STAT6039", title: "Principles of Mathematical Statistics", units: 6, semester: "BOTH", rating: 3.8, termSpan: 1 },
+  // Shared with Machine Learning's own list below — checked this session
+  // against both DTSC-SPEC and MCHL-SPEC.
+  { code: "COMP8650", title: "Advanced Topics in Machine Learning", units: 6, semester: "S2", rating: 4.3, termSpan: 1 },
 
   // Human-Centred and Creative Computing (HCCM-SPEC)
   { code: "COMP8350", title: "Sound and Music Computing", units: 6, semester: "BOTH", rating: 4.2, termSpan: 1 },
@@ -105,5 +111,6 @@ export const courseSeed: readonly Course[] = [
   { code: "COMP6780", title: "Web Programming and Design", units: 6, semester: "BOTH", rating: 4.2, termSpan: 1 },
 
   // Machine Learning (MCHL-SPEC) reuses COMP6261/COMP6490/COMP6528/
-  // COMP6670/COMP8600/COMP8880 seeded above — no new courses of its own.
+  // COMP6670/COMP8600/COMP8650/COMP8880 seeded above — no new courses of
+  // its own.
 ];
