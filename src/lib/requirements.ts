@@ -107,9 +107,8 @@ export const SPECIALISATION_GROUPS: Record<SpecialisationKey, readonly GroupDef[
 // slots (18u) of "any 6000/7000/8000-level COMP course", on top of the
 // program-wide groups above and whichever specialisation is active. Unlike
 // every other group, its course pool isn't a fixed list — it's the whole
-// catalogue's COMP-coded courses minus whatever's already permanently
-// claimed by a fixed ("all") or minimum-threshold ("min-units") group, so
-// it's computed, not declared.
+// catalogue's COMP-coded courses minus whatever's permanently claimed by a
+// fixed ("all") group, so it's computed, not declared.
 const ALL_COMP_CODES: readonly string[] = courseSeed
   .filter((c) => c.code.startsWith("COMP"))
   .map((c) => c.code);
@@ -119,20 +118,28 @@ const ALL_COMP_CODES: readonly string[] = courseSeed
 // subject area the way Computing Elective is.
 const ALL_CATALOGUE_CODES: readonly string[] = courseSeed.map((c) => c.code);
 
-// "choose-n" groups (foundational, capstone, a specialisation's own list-A
-// style group) deliberately keep their codes in the Computing Elective
-// pool: a pick beyond that group's `count` is exactly the kind of course
-// that should fall through to Computing Elective instead (see
-// surplusCourses below) rather than being permanently excluded here.
-function fixedOrMinUnitsCodes(groups: readonly GroupDef[]): Set<string> {
+// Only an "all" group's codes are permanently excluded here: "all" is the
+// one rule with no notion of "beyond the requirement" (every listed course
+// is compulsory, full stop). "choose-n" groups (foundational, capstone, a
+// specialisation's own list-A style group) and "min-units" groups (a
+// specialisation's own list-B/list-1/list-2 style group, and, previously,
+// this app's own now-abandoned assumption that a minimum has no overflow)
+// both have a real notion of "enough already" — a cap, or a threshold — so
+// a pick beyond what the group actually needs deliberately stays in the
+// pool here, exactly the kind of course that should fall through to
+// Computing/University Elective instead (see claimedByOtherGroups, which
+// decides, for an actual plan, how much of such a group's own pool its
+// rule really consumes, and surplusCourses, which flags what's left over
+// with nowhere left to go).
+function fixedCodes(groups: readonly GroupDef[]): Set<string> {
   const codes = new Set<string>();
-  for (const g of groups) if (g.rule !== "choose-n") g.courseCodes.forEach((c) => codes.add(c));
+  for (const g of groups) if (g.rule === "all") g.courseCodes.forEach((c) => codes.add(c));
   return codes;
 }
 
 function computingElectiveGroup(spec: SpecialisationKey | null): GroupDef {
   const own = spec ? SPECIALISATION_GROUPS[spec] : [];
-  const exclude = new Set([...fixedOrMinUnitsCodes(UNIVERSAL_GROUPS), ...fixedOrMinUnitsCodes(own)]);
+  const exclude = new Set([...fixedCodes(UNIVERSAL_GROUPS), ...fixedCodes(own)]);
   return {
     key: "computing-elective",
     label: "Computing elective (any COMP course)",
@@ -172,7 +179,7 @@ function computingElectiveGroup(spec: SpecialisationKey | null): GroupDef {
 // allocateElectives.
 function generalElectiveGroup(spec: SpecialisationKey | null): GroupDef {
   const own = spec ? SPECIALISATION_GROUPS[spec] : [];
-  const exclude = new Set([...fixedOrMinUnitsCodes(UNIVERSAL_GROUPS), ...fixedOrMinUnitsCodes(own)]);
+  const exclude = new Set([...fixedCodes(UNIVERSAL_GROUPS), ...fixedCodes(own)]);
   return {
     key: "general-elective",
     label: "University elective (any faculty)",
@@ -251,21 +258,42 @@ function picksForGroup(group: GroupDef, plan: readonly PlanEntry[], courseByCode
   return [...picks.filter((p) => !isComp(p)).sort(byPickOrder), ...picks.filter((p) => isComp(p)).sort(byPickOrder)];
 }
 
-// The wasted-pick detector: "choose-n" groups (foundational, capstone,
-// university elective, and each specialisation's own list-A style group)
-// have a real, hard ANU cap (`count`) — a pick beyond that cap either falls
-// through to Computing/University Elective (if it isn't otherwise claimed —
-// see computeProgress) or advances nothing at all. "min-units" groups (list
-// B/list 1/list 2 style) keep their existing soft-minimum, no-cap
-// simplification (see SPECIALISATION_GROUPS's own header comment) —
-// extending capping to them would reopen the already-descoped "list
-// max-cap" problem, so they're left out here.
+// How many of a group's own claim-priority-ordered picks (see
+// picksForGroup) its own rule actually needs, for a non-"all" group:
+// "choose-n" needs its `count`; "min-units" needs just enough picks, taken
+// in that same priority order, for their combined units to reach its
+// `units` threshold — a pick beyond that point is exactly as "spare" as a
+// choose-n pick beyond `count`, so it's left unclaimed for
+// claimedByOtherGroups/surplusCourses (below) to route elsewhere. "all"
+// groups have no such notion — every listed course is compulsory, so
+// callers claim them outright instead of asking this function.
+function claimedPickCount(group: GroupDef, ordered: readonly Pick[], courseByCode: Map<string, Course>): number {
+  if (group.rule === "choose-n") return group.count ?? 0;
+  const threshold = group.units ?? 0;
+  let units = 0;
+  let i = 0;
+  for (; i < ordered.length && units < threshold; i++) {
+    units += courseByCode.get(ordered[i].code)?.units ?? 0;
+  }
+  return i;
+}
+
+// The wasted-pick detector: any non-"all" group (foundational, capstone,
+// university elective, and each specialisation's own list-A/list-B style
+// groups) only needs as many picks as claimedPickCount (above) says — a
+// pick beyond that either falls through to Computing/University Elective
+// (if allocateElectives' own budgets still have room — see computeProgress)
+// or, if both are already spoken for by other overflow, genuinely advances
+// nothing. This mirrors claimedByOtherGroups' own claim-priority logic
+// exactly, then checks the *actual* elective allocation (not a "is it
+// COMP-coded" guess) to decide whether a leftover pick really has nowhere
+// to go.
 //
-// `claimedBy` names the pick(s) that already used up the group's `count`
-// slot(s) — the surplus course itself is never a claimant, so the banner
-// can say *why* a course a student may not even remember picking (in
-// another term) is the one blocking this one, rather than just naming the
-// surplus course in isolation.
+// `claimedBy` names the pick(s) that already used up the group's own
+// slot(s)/threshold — the surplus course itself is never a claimant, so the
+// banner can say *why* a course a student may not even remember picking
+// (in another term) is the one blocking this one, rather than just naming
+// the surplus course in isolation.
 export interface SurplusEntry {
   course: Course;
   group: GroupDef;
@@ -273,20 +301,27 @@ export interface SurplusEntry {
 }
 
 export function surplusCourses(courses: Course[], plan: readonly PlanEntry[], spec: SpecialisationKey | null): SurplusEntry[] {
-  const own = spec ? SPECIALISATION_GROUPS[spec] : [];
-  const choiceGroups = [...UNIVERSAL_GROUPS, ...own].filter((g) => g.rule === "choose-n");
+  const groups = groupsForSpecialisation(spec);
+  const electiveKeys = new Set(["computing-elective", "general-elective"]);
+  const hardGroups = groups.filter((g) => !electiveKeys.has(g.key));
   const courseByCode = new Map(courses.map((c) => [c.code, c]));
-  const surplus: SurplusEntry[] = [];
+  const claimed = claimedByOtherGroups(courses, plan, hardGroups);
+  const computingElective = groups.find((g) => g.key === "computing-elective")!;
+  const generalElective = groups.find((g) => g.key === "general-elective")!;
+  const { computing, general } = allocateElectives(courses, plan, claimed, computingElective, generalElective);
+  const rescued = new Set([...computing, ...general].map((c) => c.code));
 
-  for (const group of choiceGroups) {
+  const surplus: SurplusEntry[] = [];
+  for (const group of hardGroups.filter((g) => g.rule !== "all")) {
     const ordered = picksForGroup(group, plan, courseByCode);
+    const cutoff = claimedPickCount(group, ordered, courseByCode);
     const claimedBy = ordered
-      .slice(0, group.count ?? 0)
+      .slice(0, cutoff)
       .map((pick) => courseByCode.get(pick.code))
       .filter((c): c is Course => !!c);
-    ordered.slice(group.count ?? 0).forEach((pick) => {
+    ordered.slice(cutoff).forEach((pick) => {
       const course = courseByCode.get(pick.code);
-      if (course && !course.code.startsWith("COMP")) surplus.push({ course, group, claimedBy });
+      if (course && !rescued.has(course.code)) surplus.push({ course, group, claimedBy });
     });
   }
   return surplus;
@@ -298,33 +333,34 @@ export interface GroupProgress extends GroupDef {
   satisfied: boolean;
 }
 
-// Every non-elective group's own choose-n/all/min-units pick(s), as actual
+// Every non-elective group's own all/choose-n/min-units pick(s), as actual
 // plan entries — i.e. the courses a real allocation would say are "spoken
 // for" by something other than Computing/University Elective. A choose-n
-// group only claims up to its `count` picks (by the same claim-priority
-// order as surplusCourses); "all" and "min-units" groups claim every match
-// in full, since they have no notion of "beyond the cap" in this app's
-// model (see SPECIALISATION_GROUPS's and surplusCourses's own comments).
+// or min-units group only claims as many picks as claimedPickCount (above)
+// says it actually needs (by the same claim-priority order as
+// surplusCourses); only "all" groups claim every match unconditionally,
+// since they're the one rule with no notion of "beyond the requirement"
+// (see SPECIALISATION_GROUPS's and fixedCodes' own comments).
 //
 // This is what stops the same physical enrolment counting twice: without
 // it, a course that's already the (only) capstone pick, or the one course
-// that filled a specialisation's choose-1 list, would *also* silently
-// inflate Computing/University Elective's unit total just because its code
-// happens to still sit in that elective's pool (deliberately left there so
-// a genuine *overflow* pick from the same list has somewhere to fall
-// through to — see computingElectiveGroup/generalElectiveGroup).
+// that filled a specialisation's own min-units threshold, would *also*
+// silently inflate Computing/University Elective's unit total just because
+// its code happens to still sit in that elective's pool (deliberately left
+// there so a genuine *overflow* pick from the same list has somewhere to
+// fall through to — see computingElectiveGroup/generalElectiveGroup).
 function claimedByOtherGroups(courses: Course[], plan: readonly PlanEntry[], hardGroups: readonly GroupDef[]): Set<PlanEntry> {
   const courseByCode = new Map(courses.map((c) => [c.code, c]));
   const claimed = new Set<PlanEntry>();
   for (const group of hardGroups) {
-    if (group.rule === "choose-n") {
-      picksForGroup(group, plan, courseByCode)
-        .slice(0, group.count ?? 0)
-        .forEach((pick) => pick.entries.forEach((e) => claimed.add(e)));
-    } else {
+    if (group.rule === "all") {
       plan.forEach((e) => {
         if (group.courseCodes.includes(e.courseCode)) claimed.add(e);
       });
+    } else {
+      const ordered = picksForGroup(group, plan, courseByCode);
+      const cutoff = claimedPickCount(group, ordered, courseByCode);
+      ordered.slice(0, cutoff).forEach((pick) => pick.entries.forEach((e) => claimed.add(e)));
     }
   }
   return claimed;
@@ -340,15 +376,18 @@ function claimedByOtherGroups(courses: Course[], plan: readonly PlanEntry[], har
 //
 // Computing Elective is the constrained side — it can *only* ever be filled
 // by a COMP-coded pick, so it has first claim on the unclaimed COMP picks it
-// needs, up to its own 18u. University Elective is unrestricted, so it gets
-// whatever's left afterwards: any unclaimed non-COMP pick (which had no
-// other possible home anyway), plus any unclaimed COMP pick beyond what
-// Computing Elective actually needed. Processing unclaimed picks in a fixed
-// (term, position) order just keeps the result deterministic — since every
-// COMP course counts the same 6u-ish amount towards Computing Elective's
-// threshold, which specific picks fill it doesn't change whether either
-// bucket ends up satisfied, only the (arbitrary) explanation of which course
-// is "the" Computing Elective one.
+// needs, up to its own 18u. University Elective is subject-unrestricted but
+// still capped at its own 12u: it takes whatever's left afterwards (any
+// unclaimed non-COMP pick, which had no other possible home anyway, plus any
+// unclaimed COMP pick beyond what Computing Elective needed) only until its
+// own threshold is met too. A pick that arrives once *both* thresholds are
+// already met by earlier picks lands in neither bucket — that's the
+// genuinely-wasted case surplusCourses (above) reports. Processing unclaimed
+// picks in a fixed (term, position) order just keeps the result
+// deterministic — since every course counts the same 6u-ish amount towards
+// either threshold, which specific picks fill a bucket doesn't change
+// whether it ends up satisfied, only the (arbitrary) explanation of which
+// courses are "the" Computing/University Elective ones.
 function allocateElectives(
   courses: Course[],
   plan: readonly PlanEntry[],
@@ -376,7 +415,9 @@ function allocateElectives(
   const computing: Course[] = [];
   const general: Course[] = [];
   let computingUnits = 0;
+  let generalUnits = 0;
   const computingThreshold = computingElective.units ?? 0;
+  const generalThreshold = generalElective.units ?? 0;
 
   for (const pick of unclaimedPicks) {
     const course = courseByCode.get(pick.code);
@@ -386,11 +427,9 @@ function allocateElectives(
     if (eligibleComputing && computingUnits < computingThreshold) {
       computing.push(course);
       computingUnits += course.units;
-    } else if (eligibleGeneral) {
+    } else if (eligibleGeneral && generalUnits < generalThreshold) {
       general.push(course);
-    } else if (eligibleComputing) {
-      computing.push(course);
-      computingUnits += course.units;
+      generalUnits += course.units;
     }
   }
   return { computing, general };

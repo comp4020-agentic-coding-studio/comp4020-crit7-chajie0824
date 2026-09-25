@@ -31,7 +31,7 @@ describe("groupsForSpecialisation", () => {
     expect(groups.some((g) => g.key.startsWith("dtsc-"))).toBe(false);
   });
 
-  it("includes a Computing Elective group whose pool excludes fixed/min-units codes but keeps COMP-only-electives", () => {
+  it("includes a Computing Elective group whose pool excludes only fixed ('all') codes, keeping choose-n/min-units overflow eligible", () => {
     const undecided = groupsForSpecialisation(null).find((g) => g.key === "computing-elective")!;
     expect(undecided).toBeTruthy();
     // Not on any specialisation's list, but real COMP-coded catalogue data —
@@ -43,8 +43,12 @@ describe("groupsForSpecialisation", () => {
     const pcom = groupsForSpecialisation("PCOM").find((g) => g.key === "computing-elective")!;
     // Owned by PCOM's own compulsory ("all") group.
     expect(pcom.courseCodes).not.toContain("COMP6120");
-    // Owned by PCOM's list B ("min-units") group.
-    expect(pcom.courseCodes).not.toContain("COMP8600");
+    // On PCOM's list B ("min-units": 6) — deliberately still eligible, since
+    // list B only needs 6u/1 course; a second matching pick beyond that
+    // threshold should be able to fall through to Computing Elective
+    // instead of just vanishing (the exact bug a real user's plan surfaced —
+    // see the "min-units group's overflow" computeProgress test below).
+    expect(pcom.courseCodes).toContain("COMP8600");
     // On PCOM's list A ("choose-n") — deliberately still eligible, since an
     // extra list-A pick beyond its count should be able to fall through to
     // Computing Elective (see surplusCourses tests below).
@@ -213,24 +217,76 @@ describe("computeProgress", () => {
     ).find((g) => g.key === "cmsy-list1")!;
     expect(cmsyList1Satisfied.satisfied).toBe(true); // 12/12 units
   });
+
+  it("lets a min-units group's overflow pick fall through to Computing Elective once its own threshold is met", () => {
+    // The exact bug a real user's plan surfaced: DTSC's own elective list
+    // only needs 6u (1 course), but a student may reasonably plan two of its
+    // six options. Before this fix, dtsc-elective's pool was permanently
+    // excluded from Computing Elective altogether (regardless of whether it
+    // actually needed both picks) and claimed both matching plan entries
+    // unconditionally — so the second, COMP-coded pick just vanished instead
+    // of counting as Computing Elective, and the plan could never fully
+    // satisfy graduation even though every course in it was individually a
+    // legitimate choice.
+    const courses = [
+      course("COMP6240"), // dtsc-compulsory
+      course("COMP8410"), // dtsc-compulsory
+      course("COMP8430"), // dtsc-compulsory
+      course("COMP8600"), // dtsc-elective — claims the 6u threshold on its own
+      course("COMP8880"), // dtsc-elective overflow — should flow to Computing Elective
+    ];
+    const plan = [
+      entry("COMP6240", 1, 1),
+      entry("COMP8410", 1, 2),
+      entry("COMP8430", 1, 3),
+      entry("COMP8600", 2, 1),
+      entry("COMP8880", 2, 2),
+    ];
+
+    const progress = computeProgress(courses, plan, "DTSC");
+    const dtscElective = progress.find((g) => g.key === "dtsc-elective")!;
+    const computingElective = progress.find((g) => g.key === "computing-elective")!;
+
+    expect(dtscElective.satisfied).toBe(true); // 6/6u, met by COMP8600 alone
+    expect(computingElective.assigned.map((c) => c.code)).toContain("COMP8880");
+  });
 });
 
 describe("surplusCourses", () => {
-  it("flags the non-COMP overflow from a choose-n list, but not the COMP overflow or the claimed pick", () => {
-    // PCOM's list A is choose-1. Planning 4 of its 8 options: a non-COMP
-    // pick claims the one real slot (it has no fallback), a later non-COMP
-    // pick has nowhere to go (surplus), while any COMP pick can still count
-    // as Computing Elective instead (not surplus).
+  it("rescues a choose-n list's non-COMP overflow into University Elective when its own budget still has room", () => {
+    // PCOM's list A is choose-1. A second, non-COMP pick beyond that one
+    // real slot used to be reported as wasted outright — but nothing in the
+    // real handbook wording stops it counting as University Elective, and
+    // computeProgress's own allocation already does count it that way (see
+    // the "flows COMP overflow into University Elective" computeProgress
+    // test above). surplusCourses must agree with that, not contradict it.
     const courses = [course("MGMT7020"), course("INFS8205"), course("COMP6240"), course("COMP6390")];
     const plan = [
       entry("MGMT7020", 1, 1), // earliest non-COMP — claims list A's one slot
-      entry("INFS8205", 2, 1), // later non-COMP overflow — genuinely wasted
+      entry("INFS8205", 2, 1), // later non-COMP overflow — rescued by University Elective
       entry("COMP6240", 3, 1), // COMP overflow — falls through to Computing Elective
       entry("COMP6390", 4, 1), // COMP overflow — falls through to Computing Elective
     ];
 
+    expect(surplusCourses(courses, plan, "PCOM")).toEqual([]);
+  });
+
+  it("flags an overflow pick as genuinely surplus once both Computing and University Elective's own budgets are full", () => {
+    // 4 of PCOM list A's 5 non-COMP options planned: MGMT7020 claims the one
+    // real slot; of the 3 non-COMP overflow picks left, none are eligible
+    // for Computing Elective (not COMP-coded), and University Elective's
+    // own 12u/2-course budget can only absorb 2 of them — the 3rd genuinely
+    // has nowhere left to go.
+    const courses = [course("MGMT7020"), course("INFS8004"), course("INFS8205"), course("LAWS8445")];
+    const plan = [
+      entry("MGMT7020", 1, 1), // claims list A's one slot
+      entry("INFS8004", 1, 2), // rescued — University Elective's 1st pick
+      entry("INFS8205", 1, 3), // rescued — University Elective's 2nd pick, budget now full
+      entry("LAWS8445", 1, 4), // genuinely surplus — nowhere left to go
+    ];
+
     const surplus = surplusCourses(courses, plan, "PCOM");
-    expect(surplus.map((s) => s.course.code)).toEqual(["INFS8205"]);
+    expect(surplus.map((s) => s.course.code)).toEqual(["LAWS8445"]);
     expect(surplus[0].group.key).toBe("pcom-listA");
     expect(surplus[0].claimedBy.map((c) => c.code)).toEqual(["MGMT7020"]);
   });
