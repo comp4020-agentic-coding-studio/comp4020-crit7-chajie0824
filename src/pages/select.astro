@@ -2,7 +2,7 @@
 import { getCurrentTerm, getSpecialisation, listCourses, listPlan, listPrerequisites } from "../lib/db";
 import { completedBefore, missingPrereqs } from "../lib/prerequisites";
 import { checkDuplicate, pairLock, semesterConflict } from "../lib/plan-integrity";
-import { allGroups, computeProgress } from "../lib/requirements";
+import { allGroups, computeProgress, groupsForSpecialisation } from "../lib/requirements";
 import type { SpecialisationKey } from "../lib/specialisations";
 import { termLabel, termSemester } from "../lib/terms";
 import "../styles.css";
@@ -30,7 +30,13 @@ const planByPosition = new Map(
 );
 const progress = computeProgress(courses, plan, specialisation);
 const outstanding = progress.filter((g) => !g.satisfied);
-const pickerGroups = allGroups();
+
+// Once a specialisation is chosen, the picker narrows to just its own
+// groups (plus the universal ones) — no more browsing the other 6
+// specialisations' lists. Undecided still gets every specialisation's
+// groups, so "先选课" (pick courses first) isn't blocked.
+const pickerGroups = specialisation ? groupsForSpecialisation(specialisation) : allGroups();
+const pickerCodes = new Set(pickerGroups.flatMap((g) => g.courseCodes));
 
 const completed = completedBefore(plan, term);
 function missingFor(courseCode: string): string[] {
@@ -181,6 +187,13 @@ const semester = termSemester(term);
                                 })}
                             </optgroup>
                           ))}
+                          {course && !pickerCodes.has(course.code) && (
+                            <optgroup label="Outside your specialisation (already planned)">
+                              <option value={course.code} selected>
+                                {course.code} — {course.title} ({course.semester}) · {starGlyphs(course.rating)} {course.rating.toFixed(1)}
+                              </option>
+                            </optgroup>
+                          )}
                         </select>
                         {course && (
                           <p class="slot-detail">
