@@ -163,6 +163,81 @@ nav[aria-label="site"] a[aria-current="page"] {
   border: 1px solid #f6d9a8;
 }
 
+/* Dashboard-style KPI row on the roadmap — a card per headline number,
+   echoing the reference 选课系统 screenshots' summary strip. */
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 1rem;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.stat-card .stat-value {
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.stat-card .stat-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* One conic-gradient ring for overall units-planned-of-96 — no SVG, no JS:
+   --pct (0-100) is set inline per page from server-computed progress. */
+.progress-ring {
+  --pct: 0;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  background: conic-gradient(var(--primary) calc(var(--pct) * 1%), var(--border) 0);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.progress-ring::before {
+  content: "";
+  width: 3.3rem;
+  height: 3.3rem;
+  border-radius: 50%;
+  background: var(--card-bg);
+}
+
+.progress-ring-wrap {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* A requirement group's completion bar — same clipped-overlay idea as
+   .star-rating, but a plain width instead of an absolutely-positioned copy,
+   since a bar (unlike glyph text) has no content to preserve underneath. */
+.bar-track {
+  height: 0.5rem;
+  border-radius: 1rem;
+  background: var(--border);
+  overflow: hidden;
+  margin-top: 0.35rem;
+}
+
+.bar-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 1rem;
+}
+
+.progress-item.done .bar-fill {
+  background: var(--success);
+}
+
 .progress-list {
   list-style: none;
   padding: 0;
