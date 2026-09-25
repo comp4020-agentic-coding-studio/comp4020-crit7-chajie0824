@@ -28,7 +28,7 @@ export const UNIVERSAL_GROUPS: readonly GroupDef[] = [
   { key: "core", label: "Core", rule: "all", courseCodes: ["COMP6250", "COMP6442", "COMP6710", "COMP8260"] },
   { key: "foundational", label: "Foundational", rule: "choose-n", count: 1, courseCodes: ["MATH6005", "COMP6260"] },
   { key: "capstone", label: "Capstone", rule: "choose-n", count: 1, courseCodes: ["COMP8715", "COMP8830"] },
-  { key: "general-elective", label: "University elective (any faculty)", rule: "choose-n", count: 2, courseCodes: ["PHIL1005", "POLS1002"] },
+  { key: "general-elective", label: "University elective (any faculty)", rule: "choose-n", count: 2, courseCodes: ["UNIV-ELEC-1", "UNIV-ELEC-2"] },
 ];
 
 // Each specialisation's own 24 units, sourced from

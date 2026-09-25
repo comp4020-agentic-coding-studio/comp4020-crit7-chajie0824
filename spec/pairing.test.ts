@@ -122,9 +122,9 @@ describe("term-span auto-pairing", () => {
     // Occupy position 2 on both sides of term 3 with two different
     // ordinary (termSpan: 1) courses, so a fresh COMP8715 placement at
     // term 3 position 2 has nowhere to put its second half.
-    const r1 = await postPlan(2, { 1: "COMP6442", 2: "PHIL1005" });
+    const r1 = await postPlan(2, { 1: "COMP6442", 2: "UNIV-ELEC-1" });
     expect(r1.status).toBe(303);
-    const r2 = await postPlan(4, { 2: "POLS1002" });
+    const r2 = await postPlan(4, { 2: "UNIV-ELEC-2" });
     expect(r2.status).toBe(303);
 
     const before = await getSelect(3);
@@ -198,7 +198,7 @@ describe("term-span auto-pairing", () => {
 // instead of racing pairing's own term-3/term-4 usage in a parallel worker.
 // By this point COMP6442 and COMP8260 (both courses' shared prerequisite)
 // are already completed in terms 1-2, term 3 is empty, and only term 4
-// slot 2 is occupied (POLS1002) — see the describe block above.
+// slot 2 is occupied (UNIV-ELEC-2) — see the describe block above.
 describe("incompatible courses", () => {
   it("rejects placing the incompatible course once the other is anywhere in the plan", async () => {
     const placed = await postPlan(3, { 1: "COMP8715" });

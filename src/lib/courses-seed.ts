@@ -12,11 +12,12 @@ import type { Course } from "./schema";
 // choice.
 //
 // The program's "University Elective" (any ANU course, any faculty) is
-// still genuinely open-ended in the real handbook and is represented by a
-// realistic subset rather than the whole catalogue — modelling it in full
-// means re-scraping ANUHub for every ANU course, which this prototype is
-// trying to get away from. PCOM's "any 8000-level COMP course" list is
-// NOT a subset, though: since every 8000-level COMP course this app
+// genuinely open-ended in the real handbook — any 6-unit course from
+// outside the program counts, so naming 2 specific real courses would
+// misrepresent it as a fixed choice. Modelled instead as 2 identical
+// generic placeholder rows (UNIV-ELEC-1/2, not real ANU codes) — see the
+// University Elective comment further down. PCOM's "any 8000-level COMP
+// course" list is different: since every 8000-level COMP course this app
 // already seeds for the other 6 specialisations is real, PCOM's list B is
 // simply every one of them that isn't a project/capstone course — see
 // requirements.ts's pcom-listB for the exact set and reasoning.
@@ -43,11 +44,15 @@ export const courseSeed: readonly Course[] = [
   { code: "COMP8715", title: "Advanced Computing Team Project", units: 6, semester: "BOTH", rating: 4.4, termSpan: 2 },
   { code: "COMP8830", title: "Computing Internship", units: 12, semester: "BOTH", rating: 4.3, termSpan: 1 },
 
-  // University Elective ("校选课"): 12 units from any ANU faculty, split
-  // into two 6-unit slots — a realistic subset of an otherwise open
-  // catalogue (see file header).
-  { code: "PHIL1005", title: "Logic and Critical Thinking", units: 6, semester: "BOTH", rating: 4.3, termSpan: 1 },
-  { code: "POLS1002", title: "Introduction to Politics", units: 6, semester: "BOTH", rating: 4.1, termSpan: 1 },
+  // University Elective ("校选课"): 12 units, any faculty, any ANU course —
+  // genuinely open-ended in the real handbook (any 6-unit course from
+  // outside the program counts), so rather than pick 2 arbitrary named
+  // courses to stand in for an unbounded catalogue, this is modelled as 2
+  // identical generic placeholder slots. Picking either one just means "a
+  // university elective goes here" — see requirements.ts's general-elective
+  // group, capped at 2 by there being exactly 2 rows.
+  { code: "UNIV-ELEC-1", title: "University elective (any faculty)", units: 6, semester: "BOTH", rating: 4.0, termSpan: 1 },
+  { code: "UNIV-ELEC-2", title: "University elective (any faculty)", units: 6, semester: "BOTH", rating: 4.0, termSpan: 1 },
 
   // Professional Computing (PCOM-SPEC)
   { code: "COMP6120", title: "Software Engineering", units: 6, semester: "S2", rating: 4.0, termSpan: 1 },
