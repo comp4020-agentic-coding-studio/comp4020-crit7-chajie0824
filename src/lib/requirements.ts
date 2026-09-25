@@ -153,20 +153,26 @@ function computingElectiveGroup(spec: SpecialisationKey | null): GroupDef {
 // this session, which meant a real, already-seeded course that has no other
 // outlet (e.g. a PCOM list-A pick beyond its choose-1 cap, like MGMT7020 or
 // LAWS8445 — see surplusCourses) had nowhere to go even though it plainly
-// qualifies as "an elective course offered by ANU". So its pool is now
-// computed like Computing Elective's: every catalogue code minus whatever's
-// permanently owned by a fixed/min-units group, minus Computing Elective's
-// own pool (a COMP course beyond its own budget still goes there first, not
-// here, so the same course is never offered under both electives at once).
-// The two placeholder rows stay in the pool — they still stand in for "a
-// real elective from outside this whole catalogue", the ordinary case.
+// qualifies as "an elective course offered by ANU".
+//
+// This pool DELIBERATELY overlaps Computing Elective's — a COMP-coded
+// overflow pick is eligible here too, since nothing in the real wording
+// excludes it, and it stays that way even once Computing Elective's own
+// budget is already met by other picks. A first version of this function
+// excluded Computing Elective's whole pool here, on the theory that a COMP
+// pick should go there "first" — but that only ever set which course wins
+// when there's a genuine choice; it wrongly forbade a COMP pick from ever
+// counting here at all, even when Computing Elective had *more* COMP
+// overflow than it needed (18u) and nothing non-COMP was left over for
+// University Elective. Given that, computingElectiveGroup's pool is always
+// a subset of this one (see the "catalogue invariants" test) — every
+// Computing-Elective-eligible course is also University-Elective-eligible,
+// never the reverse — and it's computeProgress's job (not this function's)
+// to actually decide which bucket a shared-eligibility pick lands in: see
+// allocateElectives.
 function generalElectiveGroup(spec: SpecialisationKey | null): GroupDef {
   const own = spec ? SPECIALISATION_GROUPS[spec] : [];
-  const exclude = new Set([
-    ...fixedOrMinUnitsCodes(UNIVERSAL_GROUPS),
-    ...fixedOrMinUnitsCodes(own),
-    ...computingElectiveGroup(spec).courseCodes,
-  ]);
+  const exclude = new Set([...fixedOrMinUnitsCodes(UNIVERSAL_GROUPS), ...fixedOrMinUnitsCodes(own)]);
   return {
     key: "general-elective",
     label: "University elective (any faculty)",
@@ -324,20 +330,89 @@ function claimedByOtherGroups(courses: Course[], plan: readonly PlanEntry[], har
   return claimed;
 }
 
+// Computing Elective and University Elective now share part of their pool
+// (every non-fixed COMP course is eligible for either — see
+// generalElectiveGroup's comment) so, unlike every other group, they can't
+// each independently scan the plan for "unclaimed courses in my pool": the
+// same unclaimed COMP course would then show up as "assigned" under BOTH at
+// once, double-counting one real enrolment across two buckets exactly the
+// way claimedByOtherGroups was built to prevent.
+//
+// Computing Elective is the constrained side — it can *only* ever be filled
+// by a COMP-coded pick, so it has first claim on the unclaimed COMP picks it
+// needs, up to its own 18u. University Elective is unrestricted, so it gets
+// whatever's left afterwards: any unclaimed non-COMP pick (which had no
+// other possible home anyway), plus any unclaimed COMP pick beyond what
+// Computing Elective actually needed. Processing unclaimed picks in a fixed
+// (term, position) order just keeps the result deterministic — since every
+// COMP course counts the same 6u-ish amount towards Computing Elective's
+// threshold, which specific picks fill it doesn't change whether either
+// bucket ends up satisfied, only the (arbitrary) explanation of which course
+// is "the" Computing Elective one.
+function allocateElectives(
+  courses: Course[],
+  plan: readonly PlanEntry[],
+  claimed: Set<PlanEntry>,
+  computingElective: GroupDef,
+  generalElective: GroupDef,
+): { computing: Course[]; general: Course[] } {
+  const courseByCode = new Map(courses.map((c) => [c.code, c]));
+  const byTermPosition = (a: PlanEntry, b: PlanEntry) => a.term - b.term || a.position - b.position;
+
+  const byCode = new Map<string, PlanEntry[]>();
+  for (const entry of plan) {
+    if (claimed.has(entry)) continue;
+    const list = byCode.get(entry.courseCode) ?? [];
+    list.push(entry);
+    byCode.set(entry.courseCode, list);
+  }
+  const unclaimedPicks = [...byCode.keys()]
+    .map((code) => {
+      const earliest = [...byCode.get(code)!].sort(byTermPosition)[0];
+      return { code, term: earliest.term, position: earliest.position };
+    })
+    .sort((a, b) => a.term - b.term || a.position - b.position);
+
+  const computing: Course[] = [];
+  const general: Course[] = [];
+  let computingUnits = 0;
+  const computingThreshold = computingElective.units ?? 0;
+
+  for (const pick of unclaimedPicks) {
+    const course = courseByCode.get(pick.code);
+    if (!course) continue;
+    const eligibleComputing = computingElective.courseCodes.includes(pick.code);
+    const eligibleGeneral = generalElective.courseCodes.includes(pick.code);
+    if (eligibleComputing && computingUnits < computingThreshold) {
+      computing.push(course);
+      computingUnits += course.units;
+    } else if (eligibleGeneral) {
+      general.push(course);
+    } else if (eligibleComputing) {
+      computing.push(course);
+      computingUnits += course.units;
+    }
+  }
+  return { computing, general };
+}
+
 export function computeProgress(courses: Course[], plan: PlanEntry[], spec: SpecialisationKey | null): GroupProgress[] {
   const assignedCodes = new Set(plan.map((p) => p.courseCode));
-  const courseByCode = new Map(courses.map((c) => [c.code, c]));
   const groups = groupsForSpecialisation(spec);
   const electiveKeys = new Set(["computing-elective", "general-elective"]);
   const claimed = claimedByOtherGroups(courses, plan, groups.filter((g) => !electiveKeys.has(g.key)));
+  const computingElective = groups.find((g) => g.key === "computing-elective")!;
+  const generalElective = groups.find((g) => g.key === "general-elective")!;
+  const electiveAssigned = allocateElectives(courses, plan, claimed, computingElective, generalElective);
 
   return groups.map((group) => {
     const required = courses.filter((c) => group.courseCodes.includes(c.code));
-    const assigned = electiveKeys.has(group.key)
-      ? [...new Set(plan.filter((p) => !claimed.has(p) && group.courseCodes.includes(p.courseCode)).map((p) => p.courseCode))]
-          .map((code) => courseByCode.get(code))
-          .filter((c): c is Course => !!c)
-      : required.filter((c) => assignedCodes.has(c.code));
+    const assigned =
+      group.key === "computing-elective"
+        ? electiveAssigned.computing
+        : group.key === "general-elective"
+          ? electiveAssigned.general
+          : required.filter((c) => assignedCodes.has(c.code));
     const satisfied =
       group.rule === "all"
         ? assigned.length === required.length && required.length > 0

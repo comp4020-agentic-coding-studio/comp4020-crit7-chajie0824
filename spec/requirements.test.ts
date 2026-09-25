@@ -63,9 +63,13 @@ describe("groupsForSpecialisation", () => {
     // other outlet once list A's one real slot is already claimed.
     expect(pcom.courseCodes).toContain("MGMT7020");
     expect(pcom.courseCodes).toContain("LAWS8445");
-    // A COMP-coded list-A course stays exclusive to Computing Elective —
-    // never double-listed under University Elective too.
-    expect(pcom.courseCodes).not.toContain("COMP6240");
+    // A COMP-coded list-A course is ALSO eligible here (nothing in the real
+    // handbook wording excludes COMP from University Elective — only
+    // Computing Elective's own wording is subject-restricted). Which bucket
+    // an eligible-for-both course actually counts towards is computeProgress's
+    // allocation call, not a pool-membership question — see the "flows COMP
+    // overflow into University Elective" test below.
+    expect(pcom.courseCodes).toContain("COMP6240");
     // Owned by Core ("all") — never a University Elective either.
     expect(pcom.courseCodes).not.toContain("COMP6710");
   });
@@ -146,6 +150,55 @@ describe("computeProgress", () => {
     expect(generalElective.assigned).toEqual([]);
   });
 
+  it("flows COMP overflow into University Elective once Computing Elective's own 18u is already met", () => {
+    // This is the exact scenario a real user's own plan surfaced: 5 unclaimed
+    // COMP picks (COMP6240/COMP6390 as pcom-listA overflow, plus 3 generic
+    // COMP courses on no specific list) — 30u total. Computing Elective only
+    // needs 18u (3 picks); the other 2 (12u) have nowhere else useful to go
+    // under the real handbook wording except University Elective, which has
+    // no subject-area restriction. A prior version of this pool design
+    // excluded every COMP code from University Elective outright, so those 2
+    // surplus picks vanished instead of counting towards it.
+    const courses = [
+      course("COMP6710"), // core
+      course("COMP8715", 6), // capstone, termSpan 2
+      course("MATH6005"), // foundational
+      course("COMP6120"), // pcom-compulsory
+      course("ENGN8100"), // pcom-compulsory
+      course("MGMT7020"), // pcom-listA — claims the one slot
+      course("COMP6240"), // pcom-listA, COMP overflow
+      course("COMP6390"), // pcom-listA, COMP overflow
+      course("COMP6540"), // generic COMP overflow, no specific list
+      course("COMP6528"), // generic COMP overflow, no specific list
+      course("COMP6361"), // generic COMP overflow, no specific list
+    ];
+    const plan = [
+      entry("COMP6710", 1, 1),
+      entry("COMP6120", 1, 2),
+      entry("ENGN8100", 1, 3),
+      entry("COMP6240", 1, 4),
+      entry("MATH6005", 2, 1),
+      entry("COMP6390", 2, 2),
+      entry("COMP8715", 3, 1),
+      entry("MGMT7020", 3, 2),
+      entry("COMP8715", 4, 1),
+      entry("COMP6540", 4, 2),
+      entry("COMP6528", 4, 3),
+      entry("COMP6361", 4, 4),
+    ];
+
+    const progress = computeProgress(courses, plan, "PCOM");
+    const computingElective = progress.find((g) => g.key === "computing-elective")!;
+    const generalElective = progress.find((g) => g.key === "general-elective")!;
+
+    expect(computingElective.assigned.length).toBe(3); // exactly enough to reach 18u
+    expect(computingElective.satisfied).toBe(true);
+    // The other 2 unclaimed COMP picks, not double-counted with the above.
+    expect(generalElective.assigned.length).toBe(2);
+    expect(new Set([...computingElective.assigned, ...generalElective.assigned]).size).toBe(5); // no course in both
+    expect(generalElective.satisfied).toBe(true); // 12/12u
+  });
+
   it("satisfies a min-units group once assigned units reach the threshold", () => {
     const courses = [course("COMP8300", 6), course("COMP8045", 6)];
     const cmsyList1Unsatisfied = computeProgress(courses, [entry("COMP8300")], "CMSY").find(
@@ -202,19 +255,22 @@ describe("surplusCourses", () => {
   });
 });
 
-// computeProgress's claim-priority rule (a pick with no fallback outlet
-// claims a contested choose-n slot before one that has a fallback) is only
-// guaranteed correct — not just a plausible heuristic — because this app's
-// catalogue data satisfies three structural invariants: no course sits on
-// two different choose-n lists at once, no two hard ("all"/"choose-n"/
-// "min-units") groups active in the same specialisation context share a
-// code, and Computing/University Elective's pools never overlap. Those
-// invariants are what make each choose-n group's overflow decision
-// independent of every other group's — the classical exchange-argument
-// proof of greedy optimality doesn't apply otherwise. This suite doesn't
-// just assert that once; it scans every specialisation context (plus
-// undecided) so a future catalogue edit that breaks an invariant fails
-// here, not as a silently-wrong graduation verdict discovered by a user.
+// computeProgress's claim-priority rules — a pick with no fallback outlet
+// claims a contested choose-n slot before one that has a fallback, and
+// Computing Elective (the subject-restricted, COMP-only bucket) claims a
+// shared-eligibility COMP pick before University Elective (the unrestricted
+// one) does — are only guaranteed correct, not just a plausible heuristic,
+// because this app's catalogue data satisfies structural invariants: no
+// course sits on two different choose-n lists at once, no two hard
+// ("all"/"choose-n"/"min-units") groups active in the same specialisation
+// context share a code, and Computing Elective's pool is always a *subset*
+// of University Elective's (never the reverse, and never merely
+// overlapping) — the exchange-argument proof for "satisfy the
+// more-constrained side first, let the leftover flow to the flexible one"
+// depends on that strict subset relationship. This suite doesn't just assert
+// that once; it scans every specialisation context (plus undecided) so a
+// future catalogue edit that breaks an invariant fails here, not as a
+// silently-wrong graduation verdict discovered by a user.
 describe("catalogue invariants the claim-priority rule depends on", () => {
   const specs: (SpecialisationKey | null)[] = [null, ...SPECIALISATIONS.map((s) => s.key)];
 
@@ -234,13 +290,13 @@ describe("catalogue invariants the claim-priority rule depends on", () => {
     }
   });
 
-  it("never lets Computing Elective and University Elective's pools overlap", () => {
+  it("always keeps Computing Elective's pool a strict subset of University Elective's", () => {
     for (const spec of specs) {
       const groups = groupsForSpecialisation(spec);
       const computing = groups.find((g) => g.key === "computing-elective")!;
       const general = groups.find((g) => g.key === "general-elective")!;
-      const overlap = computing.courseCodes.filter((c) => general.courseCodes.includes(c));
-      expect(overlap, `spec=${spec ?? "null"}`).toEqual([]);
+      const missing = computing.courseCodes.filter((c) => !general.courseCodes.includes(c));
+      expect(missing, `spec=${spec ?? "null"}: Computing-Elective-eligible but not University-Elective-eligible`).toEqual([]);
     }
   });
 });
