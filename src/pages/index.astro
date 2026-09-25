@@ -1,7 +1,7 @@
 ---
 import { getCurrentTerm, getSpecialisation, listCourses, listPlan, listPrerequisites } from "../lib/db";
 import { completedBefore, lockedCourses } from "../lib/prerequisites";
-import { computeProgress, groupPercent } from "../lib/requirements";
+import { computeProgress, groupPercent, surplusCourses } from "../lib/requirements";
 import { SPECIALISATIONS, specialisationLabel, type SpecialisationKey } from "../lib/specialisations";
 import { TERMS, termStatus } from "../lib/terms";
 import "../styles.css";
@@ -14,6 +14,7 @@ const specialisation = getSpecialisation() as SpecialisationKey | null;
 const courseByCode = new Map(courses.map((c) => [c.code, c]));
 const planByCell = new Map(plan.map((p) => [`${p.term}-${p.position}`, p]));
 const progress = computeProgress(courses, plan, specialisation);
+const surplus = surplusCourses(courses, plan, specialisation);
 const totalUnits = plan.reduce((sum, p) => sum + (courseByCode.get(p.courseCode)?.units ?? 0), 0);
 const PROGRAM_UNITS = 96;
 const overallPct = Math.min(100, Math.round((totalUnits / PROGRAM_UNITS) * 100));
@@ -102,6 +103,13 @@ const STATUS_LABEL: Record<string, string> = {
           </div>
         </div>
       </div>
+
+      {surplus.length > 0 && (
+        <p class="banner banner-warning">
+          ⚠️ These planned courses don't count toward any requirement, since
+          their list's slot is already filled by an earlier pick: {surplus.map((c) => c.code).join(", ")}.
+        </p>
+      )}
 
       <h2>Graduation audit</h2>
       <ul class="progress-list card">

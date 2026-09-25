@@ -2,7 +2,7 @@
 import { getCurrentTerm, getSpecialisation, listCourses, listIncompatibilities, listPlan, listPrerequisites } from "../lib/db";
 import { completedBefore, missingPrereqs } from "../lib/prerequisites";
 import { checkDuplicate, checkIncompatible, pairLock, semesterConflict } from "../lib/plan-integrity";
-import { allGroups, computeProgress, groupsForSpecialisation } from "../lib/requirements";
+import { allGroups, computeProgress, groupsForSpecialisation, surplusCourses } from "../lib/requirements";
 import type { SpecialisationKey } from "../lib/specialisations";
 import { termLabel, termSemester } from "../lib/terms";
 import "../styles.css";
@@ -32,6 +32,7 @@ const planByPosition = new Map(
 );
 const progress = computeProgress(courses, plan, specialisation);
 const outstanding = progress.filter((g) => !g.satisfied);
+const surplus = surplusCourses(courses, plan, specialisation);
 
 // Once a specialisation is chosen, the picker narrows to just its own
 // groups (plus the universal ones) — no more browsing the other 6
@@ -120,6 +121,13 @@ const semester = termSemester(term);
       {noRoomCode && (
         <p class="banner banner-warning">
           🧩 {slotPrefix}<strong>{noRoomCode}</strong> spans two consecutive terms and needs slot {slotParam} free in an adjacent term for its second half, but it isn't available in either direction. Nothing was saved.
+        </p>
+      )}
+
+      {surplus.length > 0 && (
+        <p class="banner banner-warning">
+          ⚠️ These planned courses don't count toward any requirement, since
+          their list's slot is already filled by an earlier pick: {surplus.map((c) => c.code).join(", ")}.
         </p>
       )}
 
