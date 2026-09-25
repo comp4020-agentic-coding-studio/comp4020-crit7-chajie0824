@@ -1,12 +1,14 @@
 ---
-import { getCurrentTerm, listCourses, listPlan, listPrerequisites } from "../lib/db";
+import { getCurrentTerm, getSpecialisation, listCourses, listPlan, listPrerequisites } from "../lib/db";
 import { completedBefore, missingPrereqs } from "../lib/prerequisites";
 import { checkDuplicate, pairLock, semesterConflict } from "../lib/plan-integrity";
-import { REQUIREMENT_GROUPS, computeProgress } from "../lib/requirements";
+import { allGroups, computeProgress } from "../lib/requirements";
+import type { SpecialisationKey } from "../lib/specialisations";
 import { termLabel, termSemester } from "../lib/terms";
 import "../styles.css";
 
 const currentTerm = getCurrentTerm();
+const specialisation = getSpecialisation() as SpecialisationKey | null;
 const requestedTerm = Number(Astro.url.searchParams.get("term"));
 const term = requestedTerm >= 1 && requestedTerm <= 4 ? requestedTerm : currentTerm;
 const returnTo = `/select/?term=${term}`;
@@ -26,8 +28,9 @@ const courseByCode = new Map(courses.map((c) => [c.code, c]));
 const planByPosition = new Map(
   plan.filter((p) => p.term === term).map((p) => [p.position, p]),
 );
-const progress = computeProgress(courses, plan);
+const progress = computeProgress(courses, plan, specialisation);
 const outstanding = progress.filter((g) => !g.satisfied);
+const pickerGroups = allGroups();
 
 const completed = completedBefore(plan, term);
 function missingFor(courseCode: string): string[] {
@@ -135,10 +138,10 @@ const semester = termSemester(term);
                         </label>
                         <select id={`select-${position}`} name={`courseCode-${position}`}>
                           <option value="">— empty —</option>
-                          {REQUIREMENT_GROUPS.map((group) => (
+                          {pickerGroups.map((group) => (
                             <optgroup label={group.label}>
                               {courses
-                                .filter((c) => c.requirementGroup === group.key)
+                                .filter((c) => group.courseCodes.includes(c.code))
                                 .map((c) => {
                                   const isSelf = c.code === course?.code;
                                   const missing = missingFor(c.code);
@@ -229,9 +232,14 @@ const semester = termSemester(term);
                     <span>
                       {group.required.filter((c) => !group.assigned.includes(c)).map((c) => c.code).join(", ")}
                     </span>
-                  ) : (
+                  ) : group.rule === "choose-n" ? (
                     <span>
                       {group.count === 1 ? "one of" : `choose ${group.count} of`} {group.required.map((c) => c.code).join(", ")}
+                    </span>
+                  ) : (
+                    <span>
+                      {group.units} units from: {group.required.map((c) => c.code).join(", ")}
+                      {group.assigned.length > 0 && ` (have ${group.assigned.map((c) => c.code).join(", ")})`}
                     </span>
                   )}
                 </li>

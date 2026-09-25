@@ -1,10 +1,12 @@
 ---
-import { getCurrentTerm, listCourses, listPlan } from "../lib/db";
-import { computeProgress } from "../lib/requirements";
+import { getCurrentTerm, getSpecialisation, listCourses, listPlan } from "../lib/db";
+import { computeProgress, groupPercent } from "../lib/requirements";
+import type { SpecialisationKey } from "../lib/specialisations";
 import { TERMS } from "../lib/terms";
 import "../styles.css";
 
 const currentTerm = getCurrentTerm();
+const specialisation = getSpecialisation() as SpecialisationKey | null;
 const courses = listCourses();
 const plan = listPlan();
 const courseByCode = new Map(courses.map((c) => [c.code, c]));
@@ -12,7 +14,7 @@ const courseByCode = new Map(courses.map((c) => [c.code, c]));
 const completedTerms = TERMS.filter((t) => t.term < currentTerm);
 const completedPlan = plan.filter((p) => p.term < currentTerm);
 const totalUnits = completedPlan.reduce((sum, p) => sum + (courseByCode.get(p.courseCode)?.units ?? 0), 0);
-const progress = computeProgress(courses, completedPlan);
+const progress = computeProgress(courses, completedPlan, specialisation);
 ---
 
 <!doctype html>
@@ -81,6 +83,9 @@ const progress = computeProgress(courses, completedPlan);
             <strong>{group.label}:</strong>{" "}
             {group.assigned.length > 0 ? group.assigned.map((c) => c.code).join(", ") : "none yet"}
             {group.satisfied ? " ✓" : ""}
+            <div class="bar-track">
+              <div class="bar-fill" style={`width: ${groupPercent(group)}%`}></div>
+            </div>
           </li>
         ))}
       </ul>
