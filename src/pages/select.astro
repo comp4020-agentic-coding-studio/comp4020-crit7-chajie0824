@@ -41,6 +41,27 @@ const surplus = surplusCourses(courses, plan, specialisation);
 const pickerGroups = specialisation ? groupsForSpecialisation(specialisation) : allGroups();
 const pickerCodes = new Set(pickerGroups.flatMap((g) => g.courseCodes));
 
+// Computing Elective's pool is now (correctly) a subset of University
+// Elective's — a COMP-coded overflow pick is eligible for either, and
+// computeProgress decides which one it actually counts towards (see
+// requirements.ts's generalElectiveGroup comment). But showing that same
+// course under two near-identical optgroups here would just look like
+// arbitrary, inconsistent categorisation to someone browsing the dropdown.
+// So, display only: a Computing-Elective-eligible course appears once, under
+// its more specific home ("Computing elective"), never duplicated under
+// "University elective" too. This doesn't change what a course actually
+// counts towards once picked — only which single optgroup it's listed
+// under while choosing it.
+const computingElectivePool = new Set(pickerGroups.find((g) => g.key === "computing-elective")?.courseCodes ?? []);
+const pickerDisplayCodes = new Map(
+  pickerGroups.map((group) => [
+    group.key,
+    group.key === "general-elective"
+      ? group.courseCodes.filter((code) => !computingElectivePool.has(code))
+      : group.courseCodes,
+  ]),
+);
+
 const completed = completedBefore(plan, term);
 function missingFor(courseCode: string): string[] {
   return missingPrereqs(courseCode, prereqs, completed);
@@ -167,7 +188,7 @@ const semester = termSemester(term);
                           {pickerGroups.map((group) => (
                             <optgroup label={group.label}>
                               {courses
-                                .filter((c) => group.courseCodes.includes(c.code))
+                                .filter((c) => pickerDisplayCodes.get(group.key)!.includes(c.code))
                                 .map((c) => {
                                   const isSelf = c.code === course?.code;
                                   const missing = missingFor(c.code);
