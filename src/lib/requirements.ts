@@ -168,11 +168,20 @@ export function allGroups(): readonly GroupDef[] {
 // own header comment) — extending capping to them would reopen the
 // already-descoped "list max-cap" problem, so they're left out here.
 //
-// `claimedBy` names the earlier pick(s) that already used up the group's
-// `count` slot(s) — the surplus course itself is never the first pick, so
-// the banner can say *why* a course a student may not even remember picking
-// (in another term) is the one blocking this one, rather than just naming
-// the surplus course in isolation.
+// `claimedBy` names the pick(s) that already used up the group's `count`
+// slot(s) — the surplus course itself is never a claimant, so the banner
+// can say *why* a course a student may not even remember picking (in
+// another term) is the one blocking this one, rather than just naming the
+// surplus course in isolation.
+//
+// Within a group, a non-COMP pick claims a slot before any COMP-coded pick
+// competing for the same group, regardless of which was planned earlier: a
+// COMP-coded pick always has Computing Elective as a fallback outlet, so
+// between two picks contending for one real slot, the one *without* a
+// fallback should be the one that gets it — otherwise an earlier COMP pick
+// can "steal" the slot from a later non-COMP one that has nowhere else to
+// go, flagging the wrong course as wasted. Ties within the same COMP-ness
+// still go to whichever was planned earlier (term, then position).
 export interface SurplusEntry {
   course: Course;
   group: GroupDef;
@@ -184,17 +193,20 @@ export function surplusCourses(courses: Course[], plan: readonly PlanEntry[], sp
   const choiceGroups = [...UNIVERSAL_GROUPS, ...own].filter((g) => g.rule === "choose-n");
   const courseByCode = new Map(courses.map((c) => [c.code, c]));
   const surplus: SurplusEntry[] = [];
+  const byTermPosition = (a: PlanEntry, b: PlanEntry) => a.term - b.term || a.position - b.position;
 
   for (const group of choiceGroups) {
-    const matches = plan
-      .filter((p) => group.courseCodes.includes(p.courseCode))
-      .slice()
-      .sort((a, b) => a.term - b.term || a.position - b.position);
-    const claimedBy = matches
+    const matches = plan.filter((p) => group.courseCodes.includes(p.courseCode));
+    const isComp = (entry: PlanEntry) => courseByCode.get(entry.courseCode)?.code.startsWith("COMP") ?? false;
+    const ordered = [
+      ...matches.filter((e) => !isComp(e)).sort(byTermPosition),
+      ...matches.filter((e) => isComp(e)).sort(byTermPosition),
+    ];
+    const claimedBy = ordered
       .slice(0, group.count ?? 0)
       .map((entry) => courseByCode.get(entry.courseCode))
       .filter((c): c is Course => !!c);
-    matches.slice(group.count ?? 0).forEach((entry) => {
+    ordered.slice(group.count ?? 0).forEach((entry) => {
       const course = courseByCode.get(entry.courseCode);
       if (course && !course.code.startsWith("COMP")) surplus.push({ course, group, claimedBy });
     });

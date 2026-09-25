@@ -94,15 +94,15 @@ describe("computeProgress", () => {
 });
 
 describe("surplusCourses", () => {
-  it("flags the non-COMP overflow from a choose-n list, but not the COMP overflow or the first (claimed) pick", () => {
-    // PCOM's list A is choose-1. Planning 4 of its 8 options: the earliest
-    // (by term/position) claims the one real slot; a later non-COMP pick
-    // has nowhere to go (surplus), while a later COMP pick can still count
+  it("flags the non-COMP overflow from a choose-n list, but not the COMP overflow or the claimed pick", () => {
+    // PCOM's list A is choose-1. Planning 4 of its 8 options: a non-COMP
+    // pick claims the one real slot (it has no fallback), a later non-COMP
+    // pick has nowhere to go (surplus), while any COMP pick can still count
     // as Computing Elective instead (not surplus).
     const courses = [course("MGMT7020"), course("INFS8205"), course("COMP6240"), course("COMP6390")];
     const plan = [
-      entry("MGMT7020", 1, 1), // earliest — claims list A's one slot
-      entry("INFS8205", 2, 1), // non-COMP overflow — genuinely wasted
+      entry("MGMT7020", 1, 1), // earliest non-COMP — claims list A's one slot
+      entry("INFS8205", 2, 1), // later non-COMP overflow — genuinely wasted
       entry("COMP6240", 3, 1), // COMP overflow — falls through to Computing Elective
       entry("COMP6390", 4, 1), // COMP overflow — falls through to Computing Elective
     ];
@@ -111,6 +111,19 @@ describe("surplusCourses", () => {
     expect(surplus.map((s) => s.course.code)).toEqual(["INFS8205"]);
     expect(surplus[0].group.key).toBe("pcom-listA");
     expect(surplus[0].claimedBy.map((c) => c.code)).toEqual(["MGMT7020"]);
+  });
+
+  it("lets a non-COMP pick claim the slot ahead of an earlier COMP pick, since the COMP one has a fallback", () => {
+    // Same list A, but this time the COMP-coded course was planned first
+    // (an earlier term) and the non-COMP one second. Term/position order
+    // alone would let COMP6240 "steal" the slot and wrongly flag MGMT7020
+    // (which has nowhere else to go) as the wasted pick — COMP-ness should
+    // win the tie-break instead.
+    const courses = [course("COMP6240"), course("MGMT7020")];
+    const plan = [entry("COMP6240", 1, 3), entry("MGMT7020", 3, 4)];
+
+    const surplus = surplusCourses(courses, plan, "PCOM");
+    expect(surplus).toEqual([]);
   });
 
   it("returns nothing when a choose-n list is filled within its cap", () => {
