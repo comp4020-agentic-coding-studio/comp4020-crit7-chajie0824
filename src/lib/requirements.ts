@@ -58,7 +58,6 @@ export const SPECIALISATION_GROUPS: Record<SpecialisationKey, readonly GroupDef[
       courseCodes: [
         "COMP8011",
         "COMP8045",
-        "COMP8260",
         "COMP8300",
         "COMP8350",
         "COMP8410",
