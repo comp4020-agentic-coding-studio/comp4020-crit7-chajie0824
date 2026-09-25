@@ -22,7 +22,7 @@ interface SlotValues {
 }
 
 async function postPlan(term: number, values: SlotValues): Promise<{ status: number; location: string | null }> {
-  const body = new URLSearchParams({ term: String(term), returnTo: `/select/?term=${term}` });
+  const body = new URLSearchParams({ term: String(term), returnTo: `/?term=${term}` });
   for (const position of [1, 2, 3, 4] as const) {
     body.set(`courseCode-${position}`, values[position] ?? "");
   }
@@ -36,7 +36,7 @@ async function postPlan(term: number, values: SlotValues): Promise<{ status: num
 }
 
 async function getSelect(term: number): Promise<Document> {
-  const res = await fetch(new URL(`/select/?term=${term}`, baseUrl));
+  const res = await fetch(new URL(`/?term=${term}`, baseUrl));
   const dom = new JSDOM(await res.text());
   return dom.window.document;
 }

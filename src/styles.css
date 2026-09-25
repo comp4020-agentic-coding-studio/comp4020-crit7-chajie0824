@@ -157,6 +157,78 @@ nav[aria-label="site"] a[aria-current="page"] {
   margin-block: 1rem;
 }
 
+/* A stack of related banners (validation errors from a failed save) reads
+   as one alert group, not a wall of separately-spaced boxes. */
+.banner-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-block: 1rem;
+}
+
+.banner-stack .banner {
+  margin-block: 0;
+}
+
+/* Term switcher on the course-selection home page: a row of pill tabs, one
+   per term, so switching which term you're editing doesn't require a trip
+   through the roadmap page. */
+.term-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block: 1rem;
+}
+
+.term-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 2rem;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.term-tab:hover {
+  border-color: var(--primary);
+}
+
+.term-tab.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.term-tab.active .badge {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* Slot position, styled to match the requirement-panel's badges instead of
+   a bare table-header numeral. */
+.slot-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  background: #eef1f5;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.slot.conflict .slot-badge {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
 .banner-warning {
   background: var(--warning-bg);
   color: var(--warning);

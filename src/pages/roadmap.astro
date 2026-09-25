@@ -1,0 +1,206 @@
+---
+import { getCurrentTerm, getSpecialisation, listCourses, listPlan, listPrerequisites } from "../lib/db";
+import { completedBefore, lockedCourses } from "../lib/prerequisites";
+import { computeProgress, groupPercent, surplusCourses } from "../lib/requirements";
+import { SPECIALISATIONS, specialisationLabel, type SpecialisationKey } from "../lib/specialisations";
+import { TERMS, termStatus } from "../lib/terms";
+import "../styles.css";
+
+const courses = listCourses();
+const plan = listPlan();
+const currentTerm = getCurrentTerm();
+const specialisation = getSpecialisation() as SpecialisationKey | null;
+
+const courseByCode = new Map(courses.map((c) => [c.code, c]));
+const planByCell = new Map(plan.map((p) => [`${p.term}-${p.position}`, p]));
+const progress = computeProgress(courses, plan, specialisation);
+const surplus = surplusCourses(courses, plan, specialisation);
+const totalUnits = plan.reduce((sum, p) => sum + (courseByCode.get(p.courseCode)?.units ?? 0), 0);
+const PROGRAM_UNITS = 96;
+const overallPct = Math.min(100, Math.round((totalUnits / PROGRAM_UNITS) * 100));
+const termsDone = TERMS.filter((t) => t.term < currentTerm).length;
+
+const completed = completedBefore(plan, currentTerm);
+const locked = lockedCourses(courses, plan, listPrerequisites(), completed);
+const allSatisfied = progress.every((g) => g.satisfied);
+
+const STATUS_LABEL: Record<string, string> = {
+  done: "Done",
+  current: "Current",
+  future: "Upcoming",
+};
+---
+
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Master of Computing roadmap</title>
+  </head>
+  <body>
+    <nav aria-label="site">
+      <div class="nav-brand">7706XMCOMP</div>
+      <a href="/">Select courses</a>
+      <a href="/roadmap/" aria-current="page">Roadmap</a>
+      <a href="/completed/">Completed</a>
+      <a href="/readme/">About</a>
+    </nav>
+    <main>
+      <h1>Master of Computing roadmap</h1>
+      <p>
+        A slice of the Master of Computing (7706XMCOMP) course structure —
+        {specialisation ? specialisationLabel(specialisation) : "specialisation undecided"} —
+        laid out as a 4-term timeline starting 2025 S2. This is the
+        graduation audit: what's done, what's current, and what's still
+        outstanding.
+      </p>
+
+      <div class="current-term-form card" style="display: flex; flex-wrap: wrap; gap: 1.5rem;">
+        <form method="post" action="/api/settings" style="display: flex; align-items: center; gap: 0.6rem;">
+          <input type="hidden" name="returnTo" value="/roadmap/" />
+          <label for="currentTerm">Current term</label>
+          <select id="currentTerm" name="currentTerm">
+            {TERMS.map((t) => (
+              <option value={t.term} selected={t.term === currentTerm}>
+                Term {t.term} — {t.label}
+              </option>
+            ))}
+          </select>
+          <button>Update</button>
+        </form>
+
+        <form method="post" action="/api/settings" style="display: flex; align-items: center; gap: 0.6rem;">
+          <input type="hidden" name="returnTo" value="/roadmap/" />
+          <label for="specialisation">Specialisation</label>
+          <select id="specialisation" name="specialisation">
+            <option value="" selected={!specialisation}>Undecided</option>
+            {SPECIALISATIONS.map((s) => (
+              <option value={s.key} selected={s.key === specialisation}>{s.label}</option>
+            ))}
+          </select>
+          <button>Update</button>
+        </form>
+      </div>
+
+      <div class="progress-ring-wrap card">
+        <div class="progress-ring" style={`--pct: ${overallPct}`}></div>
+        <div class="stat-cards">
+          <div class="stat-card">
+            <span class="stat-value">{totalUnits} / {PROGRAM_UNITS}</span>
+            <span class="stat-label">Units planned</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value">{Math.max(0, PROGRAM_UNITS - totalUnits)}</span>
+            <span class="stat-label">Units to go</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value">{specialisationLabel(specialisation)}</span>
+            <span class="stat-label">Specialisation</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value">{termsDone} / {TERMS.length}</span>
+            <span class="stat-label">Terms completed</span>
+          </div>
+        </div>
+      </div>
+
+      {!specialisation ? (
+        <p class="banner banner-warning">
+          📋 No specialisation chosen yet — this can only check Core, Foundational, Capstone and University
+          Elective so far. Pick a specialisation above to get a full graduation verdict.
+        </p>
+      ) : allSatisfied ? (
+        <p class="banner banner-success">
+          🎓 Every requirement is satisfied — this plan is enough to graduate.
+        </p>
+      ) : (
+        <p class="banner banner-warning">
+          📋 Not ready to graduate yet — still outstanding: {progress.filter((g) => !g.satisfied).map((g) => g.label).join(", ")}.
+        </p>
+      )}
+
+      {surplus.length > 0 && (
+        <p class="banner banner-warning">
+          ⚠️ {surplus.map((s) => (
+            <>
+              <strong>{s.course.code}</strong> doesn't count toward "{s.group.label}" — that slot already
+              went to {s.claimedBy.map((c) => c.code).join(", ")}.{" "}
+            </>
+          ))}
+        </p>
+      )}
+
+      <h2>Graduation audit</h2>
+      <ul class="progress-list card">
+        {progress.map((group) => (
+          <li class={group.satisfied ? "progress-item done" : "progress-item pending"}>
+            <strong>{group.label}:</strong>{" "}
+            {group.satisfied ? (
+              <span>
+                {group.rule === "all"
+                  ? "all done"
+                  : `chosen — ${group.assigned.map((c) => c.code).join(", ")}`}
+              </span>
+            ) : group.rule === "all" ? (
+              <span>
+                still need: {group.required.filter((c) => !group.assigned.includes(c)).map((c) => c.code).join(", ")}
+              </span>
+            ) : group.rule === "choose-n" ? (
+              <span>
+                choose {group.count} of: {group.required.map((c) => c.code).join(", ")}
+                {group.assigned.length > 0 && ` (have ${group.assigned.map((c) => c.code).join(", ")})`}
+              </span>
+            ) : (
+              <span>
+                {group.units} units from: {group.required.map((c) => c.code).join(", ")}
+                {group.assigned.length > 0 &&
+                  ` (have ${group.assigned.map((c) => c.code).join(", ")} — ${group.assigned.reduce((sum, c) => sum + c.units, 0)}/${group.units}u)`}
+              </span>
+            )}
+            <div class="bar-track">
+              <div class="bar-fill" style={`width: ${groupPercent(group)}%`}></div>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      {locked.length > 0 && (
+        <>
+          <h2>Locked</h2>
+          <ul class="progress-list card">
+            {locked.map(({ course, missing }) => (
+              <li class="progress-item locked">
+                <span class="badge locked">🔒 locked</span>{" "}
+                <strong>{course.code}</strong> — {course.title}: needs {missing.join(", ")} completed first.
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      <h2>Timeline</h2>
+      <div class="term-row">
+        {TERMS.map((t) => {
+          const status = termStatus(t.term, currentTerm);
+          return (
+            <div class={`term-card card status-${status}`}>
+              <h3>
+                Term {t.term} <span class="term-card-label">{t.label}</span>
+              </h3>
+              <span class={`badge status-${status}`}>{STATUS_LABEL[status]}</span>
+              <ul class="term-slot-list">
+                {[1, 2, 3, 4].map((position) => {
+                  const entry = planByCell.get(`${t.term}-${position}`);
+                  const course = entry ? courseByCode.get(entry.courseCode) : undefined;
+                  return <li>{course ? `${course.code} — ${course.title}` : "— empty —"}</li>;
+                })}
+              </ul>
+              <a href={`/?term=${t.term}`}>Edit this term →</a>
+            </div>
+          );
+        })}
+      </div>
+    </main>
+  </body>
+</html>

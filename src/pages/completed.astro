@@ -27,8 +27,8 @@ const progress = computeProgress(courses, completedPlan, specialisation);
   <body>
     <nav aria-label="site">
       <div class="nav-brand">7706XMCOMP</div>
-      <a href="/">Roadmap</a>
-      <a href="/select/">This semester</a>
+      <a href="/">Select courses</a>
+      <a href="/roadmap/">Roadmap</a>
       <a href="/completed/" aria-current="page">Completed</a>
       <a href="/readme/">About</a>
     </nav>
@@ -96,7 +96,7 @@ const progress = computeProgress(courses, completedPlan, specialisation);
           {completedTerms.map((t, i) => (
             <>
               {i > 0 ? ", " : ""}
-              <a href={`/select/?term=${t.term}`}>Term {t.term}</a>
+              <a href={`/?term=${t.term}`}>Term {t.term}</a>
             </>
           ))}
         </p>
