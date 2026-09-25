@@ -1,7 +1,7 @@
 ---
-import { getCurrentTerm, getSpecialisation, listCourses, listPlan, listPrerequisites } from "../lib/db";
+import { getCurrentTerm, getSpecialisation, listCourses, listIncompatibilities, listPlan, listPrerequisites } from "../lib/db";
 import { completedBefore, missingPrereqs } from "../lib/prerequisites";
-import { checkDuplicate, pairLock, semesterConflict } from "../lib/plan-integrity";
+import { checkDuplicate, checkIncompatible, pairLock, semesterConflict } from "../lib/plan-integrity";
 import { allGroups, computeProgress, groupsForSpecialisation } from "../lib/requirements";
 import type { SpecialisationKey } from "../lib/specialisations";
 import { termLabel, termSemester } from "../lib/terms";
@@ -16,6 +16,7 @@ const lockedCode = Astro.url.searchParams.get("locked");
 const duplicateCode = Astro.url.searchParams.get("duplicate");
 const nonconsecutiveCode = Astro.url.searchParams.get("nonconsecutive");
 const notOfferedCode = Astro.url.searchParams.get("notoffered");
+const incompatibleCode = Astro.url.searchParams.get("incompatible");
 const pairedCode = Astro.url.searchParams.get("paired");
 const noRoomCode = Astro.url.searchParams.get("noroom");
 const slotParam = Astro.url.searchParams.get("slot");
@@ -24,6 +25,7 @@ const slotPrefix = slotParam ? `Slot ${slotParam}: ` : "";
 const courses = listCourses();
 const plan = listPlan();
 const prereqs = listPrerequisites();
+const incompatibilities = listIncompatibilities();
 const courseByCode = new Map(courses.map((c) => [c.code, c]));
 const planByPosition = new Map(
   plan.filter((p) => p.term === term).map((p) => [p.position, p]),
@@ -103,6 +105,12 @@ const semester = termSemester(term);
         </p>
       )}
 
+      {incompatibleCode && (
+        <p class="banner banner-warning">
+          🚫 {slotPrefix}<strong>{incompatibleCode}</strong> can't be taken together with a course already in your plan — nothing was saved.
+        </p>
+      )}
+
       {pairedCode && (
         <p class="banner banner-warning">
           🧩 {slotPrefix}<strong>{pairedCode}</strong> can't be placed here — this slot is locked as one half of a 2-term course. Clear it (which clears both halves) if you want to change it. Nothing was saved.
@@ -153,29 +161,38 @@ const semester = termSemester(term);
                                   const missing = missingFor(c.code);
                                   const dup = checkDuplicate(c, plan, term, position);
                                   const offSemester = semesterConflict(c, term);
+                                  const incompatible = checkIncompatible(c, plan, incompatibilities, term, position);
                                   const locked =
-                                    (missing.length > 0 || dup.blocked || offSemester || pairInfo.blocked) &&
+                                    (missing.length > 0 ||
+                                      dup.blocked ||
+                                      offSemester ||
+                                      incompatible.blocked ||
+                                      pairInfo.blocked) &&
                                     !isSelf;
                                   const icon = !locked
                                     ? ""
                                     : dup.blocked
                                       ? "🔁 "
-                                      : missing.length > 0
-                                        ? "🔒 "
-                                        : offSemester
-                                          ? "📅 "
-                                          : "🧩 ";
+                                      : incompatible.blocked
+                                        ? "🚫 "
+                                        : missing.length > 0
+                                          ? "🔒 "
+                                          : offSemester
+                                            ? "📅 "
+                                            : "🧩 ";
                                   const reason = !locked
                                     ? ""
                                     : dup.blocked
                                       ? dup.reason === "non-consecutive"
                                         ? ` — must be consecutive with Term ${dup.otherEntry?.term}`
                                         : ` — already in Term ${dup.otherEntry?.term}`
-                                      : missing.length > 0
-                                        ? ` — needs ${missing.join(", ")}`
-                                        : offSemester
-                                          ? ` — not offered in ${semester}`
-                                          : ` — locked: paired with Term ${pairInfo.pairedTerm}`;
+                                      : incompatible.blocked
+                                        ? ` — incompatible with ${incompatible.otherEntry?.courseCode} (Term ${incompatible.otherEntry?.term})`
+                                        : missing.length > 0
+                                          ? ` — needs ${missing.join(", ")}`
+                                          : offSemester
+                                            ? ` — not offered in ${semester}`
+                                            : ` — locked: paired with Term ${pairInfo.pairedTerm}`;
                                   return (
                                     <option value={c.code} selected={isSelf} disabled={locked}>
                                       {icon}

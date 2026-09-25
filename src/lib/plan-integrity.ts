@@ -1,4 +1,4 @@
-import type { Course, PlanEntry } from "./schema";
+import type { Course, Incompatibility, PlanEntry } from "./schema";
 import { termSemester } from "./terms";
 
 // A course offered only in S1 can't actually be taken in an S2 term, and
@@ -49,6 +49,34 @@ export function checkDuplicate(
   }
 
   return { blocked: false };
+}
+
+export interface IncompatibleCheck {
+  blocked: boolean;
+  otherEntry?: PlanEntry;
+}
+
+// A course can be incompatible with one already sitting *anywhere* in the
+// plan, not just the same term — ANU's rule is "these can never both count
+// towards the degree" (e.g. COMP8715 and COMP8830 are alternative
+// capstones), not a same-semester clash, so this checks the whole plan the
+// same way checkDuplicate's termSpan branch does.
+export function checkIncompatible(
+  course: Course,
+  plan: readonly PlanEntry[],
+  incompatibilities: readonly Incompatibility[],
+  term: number,
+  position: number,
+): IncompatibleCheck {
+  const otherCodes = incompatibilities
+    .filter((i) => i.courseCode === course.code || i.withCode === course.code)
+    .map((i) => (i.courseCode === course.code ? i.withCode : i.courseCode));
+  if (otherCodes.length === 0) return { blocked: false };
+
+  const conflict = plan.find(
+    (p) => otherCodes.includes(p.courseCode) && !(p.term === term && p.position === position),
+  );
+  return conflict ? { blocked: true, otherEntry: conflict } : { blocked: false };
 }
 
 export interface ProposedSlot {

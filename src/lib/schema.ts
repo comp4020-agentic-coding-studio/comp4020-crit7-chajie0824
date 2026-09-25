@@ -93,3 +93,27 @@ export const prerequisites = sqliteTable(
 );
 
 export type Prerequisite = typeof prerequisites.$inferSelect;
+
+// Reference data: pairs of courses ANU's own "Incompatible With" field says
+// can never both count towards the degree — e.g. COMP8715 and COMP8830 are
+// the program's two capstone alternatives, so completing one rules out the
+// other. Stored once per pair (courseCode < withCode isn't enforced, but the
+// seed only lists each pair once); the check in plan-integrity.ts looks both
+// directions, since incompatibility is symmetric unlike a prerequisite.
+// Seeded from incompatibilitySeed in db.ts, alongside the catalogue — not
+// user-editable.
+export const incompatibilities = sqliteTable(
+  "incompatibilities",
+  {
+    id: int().primaryKey({ autoIncrement: true }),
+    courseCode: text("course_code")
+      .notNull()
+      .references(() => courses.code),
+    withCode: text("with_code")
+      .notNull()
+      .references(() => courses.code),
+  },
+  (t) => [uniqueIndex("incompatibilities_pair_unique").on(t.courseCode, t.withCode)],
+);
+
+export type Incompatibility = typeof incompatibilities.$inferSelect;

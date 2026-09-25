@@ -57,6 +57,13 @@
       "when": 1790304518389,
       "tag": "0007_naive_timeslip",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1790306326176,
+      "tag": "0008_nappy_salo",
+      "breakpoints": true
     }
   ]
 }

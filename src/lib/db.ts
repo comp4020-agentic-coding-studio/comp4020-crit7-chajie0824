@@ -5,8 +5,19 @@ import { and, eq, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { courseSeed } from "./courses-seed";
+import { incompatibilitySeed } from "./incompatibilities-seed";
 import { prerequisiteSeed } from "./prerequisites-seed";
-import { type Course, type PlanEntry, type Prerequisite, courses, planEntries, prerequisites, settings } from "./schema";
+import {
+  type Course,
+  type Incompatibility,
+  type PlanEntry,
+  type Prerequisite,
+  courses,
+  incompatibilities,
+  planEntries,
+  prerequisites,
+  settings,
+} from "./schema";
 
 // One SQLite file is the app's whole persistent state. In production
 // fly.toml points DATABASE_PATH at the machine's volume (/data), which is
@@ -53,8 +64,9 @@ db.insert(settings).values({ id: 1, currentTerm: 3 }).onConflictDoNothing().run(
 
 // Same fixed-content treatment as the catalogue itself.
 db.insert(prerequisites).values([...prerequisiteSeed]).onConflictDoNothing().run();
+db.insert(incompatibilities).values([...incompatibilitySeed]).onConflictDoNothing().run();
 
-export type { Course, PlanEntry, Prerequisite };
+export type { Course, Incompatibility, PlanEntry, Prerequisite };
 
 export function listCourses(): Course[] {
   return db.select().from(courses).all();
@@ -62,6 +74,10 @@ export function listCourses(): Course[] {
 
 export function listPrerequisites(): Prerequisite[] {
   return db.select().from(prerequisites).all();
+}
+
+export function listIncompatibilities(): Incompatibility[] {
+  return db.select().from(incompatibilities).all();
 }
 
 export function listPlan(): PlanEntry[] {

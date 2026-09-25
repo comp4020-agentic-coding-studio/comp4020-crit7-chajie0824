@@ -57,6 +57,12 @@ function nonEmptyOptionsAllDisabled(select: HTMLSelectElement): boolean {
   return options.every((o) => o.getAttribute("value") === selfCode || o.hasAttribute("disabled"));
 }
 
+function option(select: HTMLSelectElement, code: string): HTMLOptionElement {
+  const el = select.querySelector(`option[value="${code}"]`);
+  if (!el) throw new Error(`no option for ${code}`);
+  return el as HTMLOptionElement;
+}
+
 describe("term-span auto-pairing", () => {
   // Foundation for every COMP8715 placement below: COMP6710 + COMP8260 in
   // term 1, COMP6442 in term 2, so completedBefore(term >= 3) always
@@ -181,5 +187,57 @@ describe("term-span auto-pairing", () => {
     expect(selectedValue(slotSelect(afterDup, 1))).toBe("COMP8260");
     expect(selectedValue(slotSelect(afterDup, 2))).toBe("COMP6710");
     expect(selectedValue(slotSelect(afterDup, 4))).toBe("");
+  });
+});
+
+// COMP8715 and COMP8830 are the program's two capstone alternatives — ANU's
+// own course page says they're incompatible, so completing one must lock
+// out the other everywhere in the plan, not just the same term (see
+// plan-integrity.ts's checkIncompatible). Appended to this file rather than
+// a separate one so it shares the suite's guaranteed sequential ordering
+// instead of racing pairing's own term-3/term-4 usage in a parallel worker.
+// By this point COMP6442 and COMP8260 (both courses' shared prerequisite)
+// are already completed in terms 1-2, term 3 is empty, and only term 4
+// slot 2 is occupied (POLS1002) — see the describe block above.
+describe("incompatible courses", () => {
+  it("rejects placing the incompatible course once the other is anywhere in the plan", async () => {
+    const placed = await postPlan(3, { 1: "COMP8715" });
+    expect(placed.status).toBe(303);
+    expect(placed.location).not.toContain("noroom");
+
+    const rejected = await postPlan(3, { 3: "COMP8830" });
+    expect(rejected.status).toBe(303);
+    expect(rejected.location).toContain("incompatible=COMP8830");
+    expect(rejected.location).toContain("slot=3");
+
+    const term3 = await getSelect(3);
+    expect(selectedValue(slotSelect(term3, 3))).toBe("");
+  });
+
+  it("shows the other course locked with a reason in the picker", async () => {
+    const term3 = await getSelect(3);
+    const comp8830 = option(slotSelect(term3, 3), "COMP8830");
+    expect(comp8830.hasAttribute("disabled")).toBe(true);
+    expect(comp8830.textContent).toContain("🚫");
+    expect(comp8830.textContent).toContain("incompatible with COMP8715");
+  });
+
+  it("unlocks again once the incompatible course is cleared", async () => {
+    // COMP8715 spans two terms and auto-paired forward into term 4 slot 1 —
+    // clearing either half cascades to the other.
+    const cleared = await postPlan(3, { 1: "" });
+    expect(cleared.status).toBe(303);
+    const term3 = await getSelect(3);
+    const term4 = await getSelect(4);
+    expect(selectedValue(slotSelect(term3, 1))).toBe("");
+    expect(selectedValue(slotSelect(term4, 1))).toBe("");
+
+    const comp8830 = option(slotSelect(term3, 3), "COMP8830");
+    expect(comp8830.hasAttribute("disabled")).toBe(false);
+
+    const placed = await postPlan(3, { 3: "COMP8830" });
+    expect(placed.status).toBe(303);
+    const after = await getSelect(3);
+    expect(selectedValue(slotSelect(after, 3))).toBe("COMP8830");
   });
 });

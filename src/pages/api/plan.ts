@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
-import { assignCourse, assignCoursePair, clearSlot, listCourses, listPlan, listPrerequisites } from "../../lib/db";
+import { assignCourse, assignCoursePair, clearSlot, listCourses, listIncompatibilities, listPlan, listPrerequisites } from "../../lib/db";
 import { completedBefore, missingPrereqs } from "../../lib/prerequisites";
-import { buildMergedPlan, checkDuplicate, findPairSlot, pairLock, semesterConflict, type PairTarget } from "../../lib/plan-integrity";
+import { buildMergedPlan, checkDuplicate, checkIncompatible, findPairSlot, pairLock, semesterConflict, type PairTarget } from "../../lib/plan-integrity";
 
 export const POST: APIRoute = async ({ request, redirect }) => {
   const form = await request.formData();
@@ -33,6 +33,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   const courses = listCourses();
   const plan = listPlan();
   const prereqs = listPrerequisites();
+  const incompatibilities = listIncompatibilities();
   // completedBefore only reads terms strictly before `term`, so editing
   // `term` itself can never change its result — the pre-edit plan is fine.
   const completed = completedBefore(plan, term);
@@ -61,6 +62,11 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     const dup = checkDuplicate(course, mergedPlan, term, position);
     if (dup.blocked) {
       return fail(dup.reason === "non-consecutive" ? "nonconsecutive" : "duplicate", courseCode, position);
+    }
+
+    const incompatible = checkIncompatible(course, mergedPlan, incompatibilities, term, position);
+    if (incompatible.blocked) {
+      return fail("incompatible", courseCode, position);
     }
 
     if (missingPrereqs(courseCode, prereqs, completed).length > 0) {
