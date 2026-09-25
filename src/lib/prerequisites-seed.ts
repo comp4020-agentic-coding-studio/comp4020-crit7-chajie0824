@@ -8,4 +8,5 @@ export const prerequisiteSeed: readonly { courseCode: string; requiresCode: stri
   { courseCode: "COMP8715", requiresCode: "COMP8260" },
   { courseCode: "COMP8830", requiresCode: "COMP6442" },
   { courseCode: "COMP8830", requiresCode: "COMP8260" },
+  { courseCode: "COMP8020", requiresCode: "COMP6390" },
 ];

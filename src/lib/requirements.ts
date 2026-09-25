@@ -91,7 +91,7 @@ export const SPECIALISATION_GROUPS: Record<SpecialisationKey, readonly GroupDef[
   ],
   HCCM: [
     { key: "hccm-compulsory", label: "Human-Centred and Creative Computing — compulsory", rule: "all", courseCodes: ["COMP6390"] },
-    { key: "hccm-list1", label: "Human-Centred and Creative Computing — list 1", rule: "min-units", units: 12, courseCodes: ["COMP8350", "COMP8539", "COMP8610"] },
+    { key: "hccm-list1", label: "Human-Centred and Creative Computing — list 1", rule: "min-units", units: 12, courseCodes: ["COMP8020", "COMP8350", "COMP8539", "COMP8610"] },
     { key: "hccm-list2", label: "Human-Centred and Creative Computing — list 2 (optional top-up)", rule: "min-units", units: 0, courseCodes: ["COMP6528", "COMP6540", "COMP6720", "COMP6780"] },
   ],
   MCHL: [

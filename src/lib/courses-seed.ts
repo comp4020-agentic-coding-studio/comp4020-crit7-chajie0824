@@ -105,6 +105,11 @@ export const courseSeed: readonly Course[] = [
   { code: "COMP8350", title: "Sound and Music Computing", units: 6, semester: "BOTH", rating: 4.2, termSpan: 1 },
   { code: "COMP8539", title: "Advanced Topics in Computer Vision", units: 6, semester: "BOTH", rating: 4.0, termSpan: 1 },
   { code: "COMP8610", title: "Computer Graphics", units: 6, semester: "BOTH", rating: 4.3, termSpan: 1 },
+  // Co-taught with COMP4020 (this crit course's own postgrad pairing) — a
+  // valid substitute for COMP8350 or COMP8539 per SoCo's own substitutions
+  // list, so it joins hccm-list1 as a peer rather than modelling a separate
+  // 1:1 substitution chain.
+  { code: "COMP8020", title: "Advanced Topics in Human-Centred and Creative Computing", units: 6, semester: "S2", rating: 5.0, termSpan: 1 },
   { code: "COMP6528", title: "Computer Vision", units: 6, semester: "BOTH", rating: 4.1, termSpan: 1 },
   { code: "COMP6540", title: "Game Development", units: 6, semester: "BOTH", rating: 4.5, termSpan: 1 },
   { code: "COMP6720", title: "Art and Interaction Computing", units: 6, semester: "BOTH", rating: 4.0, termSpan: 1 },
