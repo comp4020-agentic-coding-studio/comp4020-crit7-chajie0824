@@ -406,7 +406,20 @@ export function computeProgress(courses: Course[], plan: PlanEntry[], spec: Spec
   const electiveAssigned = allocateElectives(courses, plan, claimed, computingElective, generalElective);
 
   return groups.map((group) => {
-    const required = courses.filter((c) => group.courseCodes.includes(c.code));
+    // Display list only — never what allocateElectives (above) actually
+    // scores against, which still reads the real, overlapping
+    // computingElective/generalElective.courseCodes directly. Without this,
+    // University Elective's "required" text would list every one of
+    // Computing Elective's own COMP courses too, since their pools
+    // deliberately overlap (see generalElectiveGroup's comment) — correct
+    // for scoring an overflow pick, but reads as an arbitrarily huge,
+    // COMP-cluttered "choose from" list on the pages that print `required`
+    // as a human-readable course list (index.astro's audit, select.astro's
+    // "Still to pick" aside).
+    const required =
+      group.key === "general-elective"
+        ? courses.filter((c) => group.courseCodes.includes(c.code) && !computingElective.courseCodes.includes(c.code))
+        : courses.filter((c) => group.courseCodes.includes(c.code));
     const assigned =
       group.key === "computing-elective"
         ? electiveAssigned.computing

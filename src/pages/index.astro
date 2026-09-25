@@ -146,10 +146,16 @@ const STATUS_LABEL: Record<string, string> = {
               <span>
                 still need: {group.required.filter((c) => !group.assigned.includes(c)).map((c) => c.code).join(", ")}
               </span>
-            ) : (
+            ) : group.rule === "choose-n" ? (
               <span>
                 choose {group.count} of: {group.required.map((c) => c.code).join(", ")}
                 {group.assigned.length > 0 && ` (have ${group.assigned.map((c) => c.code).join(", ")})`}
+              </span>
+            ) : (
+              <span>
+                {group.units} units from: {group.required.map((c) => c.code).join(", ")}
+                {group.assigned.length > 0 &&
+                  ` (have ${group.assigned.map((c) => c.code).join(", ")} — ${group.assigned.reduce((sum, c) => sum + c.units, 0)}/${group.units}u)`}
               </span>
             )}
             <div class="bar-track">
