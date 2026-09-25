@@ -58,6 +58,7 @@ export const SPECIALISATION_GROUPS: Record<SpecialisationKey, readonly GroupDef[
       units: 6,
       courseCodes: [
         "COMP8011",
+        "COMP8020",
         "COMP8045",
         "COMP8300",
         "COMP8350",
@@ -166,20 +167,36 @@ export function allGroups(): readonly GroupDef[] {
 // existing soft-minimum, no-cap simplification (see SPECIALISATION_GROUPS's
 // own header comment) — extending capping to them would reopen the
 // already-descoped "list max-cap" problem, so they're left out here.
-export function surplusCourses(courses: Course[], plan: readonly PlanEntry[], spec: SpecialisationKey | null): Course[] {
+//
+// `claimedBy` names the earlier pick(s) that already used up the group's
+// `count` slot(s) — the surplus course itself is never the first pick, so
+// the banner can say *why* a course a student may not even remember picking
+// (in another term) is the one blocking this one, rather than just naming
+// the surplus course in isolation.
+export interface SurplusEntry {
+  course: Course;
+  group: GroupDef;
+  claimedBy: Course[];
+}
+
+export function surplusCourses(courses: Course[], plan: readonly PlanEntry[], spec: SpecialisationKey | null): SurplusEntry[] {
   const own = spec ? SPECIALISATION_GROUPS[spec] : [];
   const choiceGroups = [...UNIVERSAL_GROUPS, ...own].filter((g) => g.rule === "choose-n");
   const courseByCode = new Map(courses.map((c) => [c.code, c]));
-  const surplus: Course[] = [];
+  const surplus: SurplusEntry[] = [];
 
   for (const group of choiceGroups) {
     const matches = plan
       .filter((p) => group.courseCodes.includes(p.courseCode))
       .slice()
       .sort((a, b) => a.term - b.term || a.position - b.position);
+    const claimedBy = matches
+      .slice(0, group.count ?? 0)
+      .map((entry) => courseByCode.get(entry.courseCode))
+      .filter((c): c is Course => !!c);
     matches.slice(group.count ?? 0).forEach((entry) => {
       const course = courseByCode.get(entry.courseCode);
-      if (course && !course.code.startsWith("COMP")) surplus.push(course);
+      if (course && !course.code.startsWith("COMP")) surplus.push({ course, group, claimedBy });
     });
   }
   return surplus;

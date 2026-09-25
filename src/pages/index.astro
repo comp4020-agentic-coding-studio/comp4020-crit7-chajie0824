@@ -106,8 +106,12 @@ const STATUS_LABEL: Record<string, string> = {
 
       {surplus.length > 0 && (
         <p class="banner banner-warning">
-          ⚠️ These planned courses don't count toward any requirement, since
-          their list's slot is already filled by an earlier pick: {surplus.map((c) => c.code).join(", ")}.
+          ⚠️ {surplus.map((s) => (
+            <>
+              <strong>{s.course.code}</strong> doesn't count toward "{s.group.label}" — that slot already
+              went to {s.claimedBy.map((c) => c.code).join(", ")}.{" "}
+            </>
+          ))}
         </p>
       )}
 

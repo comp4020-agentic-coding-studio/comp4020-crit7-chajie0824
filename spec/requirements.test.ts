@@ -108,7 +108,9 @@ describe("surplusCourses", () => {
     ];
 
     const surplus = surplusCourses(courses, plan, "PCOM");
-    expect(surplus.map((c) => c.code)).toEqual(["INFS8205"]);
+    expect(surplus.map((s) => s.course.code)).toEqual(["INFS8205"]);
+    expect(surplus[0].group.key).toBe("pcom-listA");
+    expect(surplus[0].claimedBy.map((c) => c.code)).toEqual(["MGMT7020"]);
   });
 
   it("returns nothing when a choose-n list is filled within its cap", () => {
