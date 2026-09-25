@@ -40,7 +40,6 @@ for (const course of courseSeed) {
         title: course.title,
         units: course.units,
         semester: course.semester,
-        requirementGroup: course.requirementGroup,
         rating: course.rating,
         termSpan: course.termSpan,
       },
@@ -75,6 +74,15 @@ export function getCurrentTerm(): number {
 
 export function setCurrentTerm(term: number): void {
   db.update(settings).set({ currentTerm: term }).where(eq(settings.id, 1)).run();
+}
+
+// null means "undecided" — a real, supported state (see schema.ts).
+export function getSpecialisation(): string | null {
+  return db.select().from(settings).get()?.specialisation ?? null;
+}
+
+export function setSpecialisation(specialisation: string | null): void {
+  db.update(settings).set({ specialisation }).where(eq(settings.id, 1)).run();
 }
 
 // A slot is (term, position); the unique index on that pair is what makes
