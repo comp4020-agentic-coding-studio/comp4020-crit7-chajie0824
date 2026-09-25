@@ -6,7 +6,10 @@ import { buildMergedPlan, checkDuplicate, checkIncompatible, findPairSlot, pairL
 export const POST: APIRoute = async ({ request, redirect }) => {
   const form = await request.formData();
   const term = Number(form.get("term"));
-  const returnTo = String(form.get("returnTo") ?? "/");
+  // Only a same-site relative path is honoured — a returnTo pointing off-site
+  // (e.g. "//evil.example") would otherwise make this POST an open redirect.
+  const submittedReturnTo = String(form.get("returnTo") ?? "/");
+  const returnTo = submittedReturnTo.startsWith("/") && !submittedReturnTo.startsWith("//") ? submittedReturnTo : "/";
 
   if (!(term >= 1 && term <= 4)) {
     return redirect(returnTo, 303);

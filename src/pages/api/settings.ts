@@ -4,7 +4,10 @@ import { isSpecialisationKey } from "../../lib/specialisations";
 
 export const POST: APIRoute = async ({ request, redirect }) => {
   const form = await request.formData();
-  const returnTo = String(form.get("returnTo") ?? "/");
+  // Only a same-site relative path is honoured — a returnTo pointing off-site
+  // (e.g. "//evil.example") would otherwise make this POST an open redirect.
+  const submittedReturnTo = String(form.get("returnTo") ?? "/");
+  const returnTo = submittedReturnTo.startsWith("/") && !submittedReturnTo.startsWith("//") ? submittedReturnTo : "/";
 
   // Both fields are optional per submission — index.astro posts them from
   // two separate forms, so only one is ever present in a given request.

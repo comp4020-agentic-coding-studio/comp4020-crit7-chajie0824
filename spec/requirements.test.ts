@@ -55,6 +55,18 @@ describe("groupsForSpecialisation", () => {
     expect(pcom.courseCodes).toContain("COMP6240");
   });
 
+  it("also includes ENGN-coded courses in the Computing Elective pool, matching the handbook's own 'COMP or ENGN' wording", () => {
+    // Not owned by any specialisation's own "all" group while undecided —
+    // must be pickable as Computing Elective, same as an unlisted COMP code.
+    const undecided = groupsForSpecialisation(null).find((g) => g.key === "computing-elective")!;
+    expect(undecided.courseCodes).toContain("ENGN6213");
+
+    // Owned by PCOM's own compulsory ("all") group — must never double as
+    // Computing Elective once PCOM is chosen.
+    const pcom = groupsForSpecialisation("PCOM").find((g) => g.key === "computing-elective")!;
+    expect(pcom.courseCodes).not.toContain("ENGN8100");
+  });
+
   it("includes a University Elective group whose pool covers the whole catalogue, not just the two placeholder rows", () => {
     const pcom = groupsForSpecialisation("PCOM").find((g) => g.key === "general-elective")!;
     expect(pcom).toBeTruthy();
@@ -249,6 +261,19 @@ describe("computeProgress", () => {
 
     expect(dtscElective.satisfied).toBe(true); // 6/6u, met by COMP8600 alone
     expect(computingElective.assigned.map((c) => c.code)).toContain("COMP8880");
+  });
+
+  it("counts an ENGN-coded pick towards Computing Elective, not just COMP-coded ones", () => {
+    // Before this fix, ALL_COMP_CODES (and picksForGroup's own claim-priority
+    // check) only recognised a "COMP"-prefixed code, so an ENGN-coded course
+    // not otherwise claimed by a fixed group had nowhere to go even though
+    // the handbook's own wording for this bucket is "COMP...or ENGN".
+    // CMSY's own list 2 is a "min-units: 0" optional top-up — it never
+    // claims a pick, so ENGN6213 stays fully unclaimed and available here.
+    const courses = [course("ENGN6213")];
+    const progress = computeProgress(courses, [entry("ENGN6213")], "CMSY");
+    const computingElective = progress.find((g) => g.key === "computing-elective")!;
+    expect(computingElective.assigned.map((c) => c.code)).toContain("ENGN6213");
   });
 });
 

@@ -104,13 +104,18 @@ export const SPECIALISATION_GROUPS: Record<SpecialisationKey, readonly GroupDef[
 
 // The program's 6th and last requirement-slot category (Study Options
 // table, programsandcourses.anu.edu.au/2025/program/7706XMCOMP): 3 six-unit
-// slots (18u) of "any 6000/7000/8000-level COMP course", on top of the
-// program-wide groups above and whichever specialisation is active. Unlike
-// every other group, its course pool isn't a fixed list — it's the whole
-// catalogue's COMP-coded courses minus whatever's permanently claimed by a
-// fixed ("all") group, so it's computed, not declared.
+// slots (18u) of "any 6000/7000/8000-level course from the subject area COMP
+// Computer Science or ENGN Engineering", on top of the program-wide groups
+// above and whichever specialisation is active. Unlike every other group,
+// its course pool isn't a fixed list — it's the whole catalogue's COMP- or
+// ENGN-coded courses minus whatever's permanently claimed by a fixed ("all")
+// group, so it's computed, not declared.
+function isCompOrEngn(code: string): boolean {
+  return code.startsWith("COMP") || code.startsWith("ENGN");
+}
+
 const ALL_COMP_CODES: readonly string[] = courseSeed
-  .filter((c) => c.code.startsWith("COMP"))
+  .filter((c) => isCompOrEngn(c.code))
   .map((c) => c.code);
 
 // Every seeded course, COMP-coded or not — the pool generalElectiveGroup
@@ -253,7 +258,10 @@ function picksForGroup(group: GroupDef, plan: readonly PlanEntry[], courseByCode
     const earliest = [...entries].sort(byTermPosition)[0];
     return { code, entries, term: earliest.term, position: earliest.position };
   });
-  const isComp = (p: Pick) => courseByCode.get(p.code)?.code.startsWith("COMP") ?? false;
+  const isComp = (p: Pick) => {
+    const code = courseByCode.get(p.code)?.code;
+    return code ? isCompOrEngn(code) : false;
+  };
   const byPickOrder = (a: Pick, b: Pick) => a.term - b.term || a.position - b.position;
   return [...picks.filter((p) => !isComp(p)).sort(byPickOrder), ...picks.filter((p) => isComp(p)).sort(byPickOrder)];
 }
@@ -332,6 +340,15 @@ export interface GroupProgress extends GroupDef {
   assigned: Course[];
   satisfied: boolean;
 }
+
+// A note for whoever next edits SPECIALISATION_GROUPS: every unit-summing
+// site below (claimedPickCount, computeProgress's `satisfied`, groupPercent)
+// sums each course's own `units` value once per deduplicated course code —
+// correct today because the only termSpan > 1 course (COMP8715, stored as
+// 6u/term) only ever appears in the "capstone" choose-n group, which counts
+// picks, not units. If a termSpan > 1 course is ever added to a "min-units"
+// group, its per-term `units` value would silently undercount that course's
+// real total contribution — worth a second look before doing that.
 
 // Every non-elective group's own all/choose-n/min-units pick(s), as actual
 // plan entries — i.e. the courses a real allocation would say are "spoken
