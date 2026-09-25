@@ -1,3 +1,4 @@
+import { courseSeed } from "./courses-seed";
 import type { Course, PlanEntry } from "./schema";
 import { SPECIALISATIONS, type SpecialisationKey } from "./specialisations";
 
@@ -99,24 +100,89 @@ export const SPECIALISATION_GROUPS: Record<SpecialisationKey, readonly GroupDef[
   ],
 };
 
+// The program's 6th and last requirement-slot category (Study Options
+// table, programsandcourses.anu.edu.au/2025/program/7706XMCOMP): 3 six-unit
+// slots (18u) of "any 6000/7000/8000-level COMP course", on top of the
+// program-wide groups above and whichever specialisation is active. Unlike
+// every other group, its course pool isn't a fixed list — it's the whole
+// catalogue's COMP-coded courses minus whatever's already permanently
+// claimed by a fixed ("all") or minimum-threshold ("min-units") group, so
+// it's computed, not declared.
+const ALL_COMP_CODES: readonly string[] = courseSeed
+  .filter((c) => c.code.startsWith("COMP"))
+  .map((c) => c.code);
+
+// "choose-n" groups (foundational, capstone, a specialisation's own list-A
+// style group) deliberately keep their codes in the Computing Elective
+// pool: a pick beyond that group's `count` is exactly the kind of course
+// that should fall through to Computing Elective instead (see
+// surplusCourses below) rather than being permanently excluded here.
+function fixedOrMinUnitsCodes(groups: readonly GroupDef[]): Set<string> {
+  const codes = new Set<string>();
+  for (const g of groups) if (g.rule !== "choose-n") g.courseCodes.forEach((c) => codes.add(c));
+  return codes;
+}
+
+function computingElectiveGroup(spec: SpecialisationKey | null): GroupDef {
+  const own = spec ? SPECIALISATION_GROUPS[spec] : [];
+  const exclude = new Set([...fixedOrMinUnitsCodes(UNIVERSAL_GROUPS), ...fixedOrMinUnitsCodes(own)]);
+  return {
+    key: "computing-elective",
+    label: "Computing elective (any COMP course)",
+    rule: "min-units",
+    units: 18,
+    courseCodes: ALL_COMP_CODES.filter((c) => !exclude.has(c)),
+  };
+}
+
 // What the graduation-audit panels (index.astro, completed.astro,
 // select.astro's aside) check against: the universal groups always, plus
-// the chosen specialisation's own groups once one is picked. `null` (or any
-// key that isn't a real specialisation) means "undecided" — a real,
-// supported state — so only the universal groups apply until the student
+// the chosen specialisation's own groups once one is picked, plus the
+// Computing Elective bucket. `null` (or any key that isn't a real
+// specialisation) means "undecided" — a real, supported state — so only
+// the universal groups (and Computing Elective) apply until the student
 // commits.
 export function groupsForSpecialisation(spec: SpecialisationKey | null): readonly GroupDef[] {
-  if (!spec) return UNIVERSAL_GROUPS;
-  return [...UNIVERSAL_GROUPS, ...SPECIALISATION_GROUPS[spec]];
+  if (!spec) return [...UNIVERSAL_GROUPS, computingElectiveGroup(null)];
+  return [...UNIVERSAL_GROUPS, ...SPECIALISATION_GROUPS[spec], computingElectiveGroup(spec)];
 }
 
 // What the course picker (select.astro's <select>) offers: every group from
 // every specialisation, not just the active one — choosing courses doesn't
 // require having committed to a specialisation first (a course legitimately
 // appearing under more than one specialisation just gets more than one
-// optgroup, same as it would on the real handbook).
+// optgroup, same as it would on the real handbook). Computing Elective here
+// uses the undecided (universal-only) exclusion set, since no single spec
+// is active in this "browse everything" context.
 export function allGroups(): readonly GroupDef[] {
-  return [...UNIVERSAL_GROUPS, ...SPECIALISATIONS.flatMap((s) => SPECIALISATION_GROUPS[s.key])];
+  return [...UNIVERSAL_GROUPS, ...SPECIALISATIONS.flatMap((s) => SPECIALISATION_GROUPS[s.key]), computingElectiveGroup(null)];
+}
+
+// The wasted-pick detector: "choose-n" groups (foundational, capstone,
+// university elective, and each specialisation's own list-A style group)
+// have a real, hard ANU cap (`count`) — a pick beyond that cap either falls
+// through to Computing Elective (if COMP-coded) or advances nothing at all
+// (if not). "min-units" groups (list B/list 1/list 2 style) keep their
+// existing soft-minimum, no-cap simplification (see SPECIALISATION_GROUPS's
+// own header comment) — extending capping to them would reopen the
+// already-descoped "list max-cap" problem, so they're left out here.
+export function surplusCourses(courses: Course[], plan: readonly PlanEntry[], spec: SpecialisationKey | null): Course[] {
+  const own = spec ? SPECIALISATION_GROUPS[spec] : [];
+  const choiceGroups = [...UNIVERSAL_GROUPS, ...own].filter((g) => g.rule === "choose-n");
+  const courseByCode = new Map(courses.map((c) => [c.code, c]));
+  const surplus: Course[] = [];
+
+  for (const group of choiceGroups) {
+    const matches = plan
+      .filter((p) => group.courseCodes.includes(p.courseCode))
+      .slice()
+      .sort((a, b) => a.term - b.term || a.position - b.position);
+    matches.slice(group.count ?? 0).forEach((entry) => {
+      const course = courseByCode.get(entry.courseCode);
+      if (course && !course.code.startsWith("COMP")) surplus.push(course);
+    });
+  }
+  return surplus;
 }
 
 export interface GroupProgress extends GroupDef {
