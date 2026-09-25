@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeProgress, groupsForSpecialisation, surplusCourses } from "../src/lib/requirements";
+import { SPECIALISATIONS, type SpecialisationKey } from "../src/lib/specialisations";
 import type { Course, PlanEntry } from "../src/lib/schema";
 
 // Pure unit tests on the requirement-group model itself — no server/DB
@@ -198,5 +199,48 @@ describe("surplusCourses", () => {
     const courses = [course("MGMT7020")];
     const plan = [entry("MGMT7020")];
     expect(surplusCourses(courses, plan, "PCOM")).toEqual([]);
+  });
+});
+
+// computeProgress's claim-priority rule (a pick with no fallback outlet
+// claims a contested choose-n slot before one that has a fallback) is only
+// guaranteed correct — not just a plausible heuristic — because this app's
+// catalogue data satisfies three structural invariants: no course sits on
+// two different choose-n lists at once, no two hard ("all"/"choose-n"/
+// "min-units") groups active in the same specialisation context share a
+// code, and Computing/University Elective's pools never overlap. Those
+// invariants are what make each choose-n group's overflow decision
+// independent of every other group's — the classical exchange-argument
+// proof of greedy optimality doesn't apply otherwise. This suite doesn't
+// just assert that once; it scans every specialisation context (plus
+// undecided) so a future catalogue edit that breaks an invariant fails
+// here, not as a silently-wrong graduation verdict discovered by a user.
+describe("catalogue invariants the claim-priority rule depends on", () => {
+  const specs: (SpecialisationKey | null)[] = [null, ...SPECIALISATIONS.map((s) => s.key)];
+
+  it("never assigns the same course code to two different hard (non-elective) groups in one context", () => {
+    for (const spec of specs) {
+      const hardGroups = groupsForSpecialisation(spec).filter(
+        (g) => g.key !== "computing-elective" && g.key !== "general-elective",
+      );
+      const owner = new Map<string, string>();
+      for (const group of hardGroups) {
+        for (const code of group.courseCodes) {
+          const existing = owner.get(code);
+          expect(existing, `spec=${spec ?? "null"}: ${code} is in both "${existing}" and "${group.key}"`).toBeUndefined();
+          owner.set(code, group.key);
+        }
+      }
+    }
+  });
+
+  it("never lets Computing Elective and University Elective's pools overlap", () => {
+    for (const spec of specs) {
+      const groups = groupsForSpecialisation(spec);
+      const computing = groups.find((g) => g.key === "computing-elective")!;
+      const general = groups.find((g) => g.key === "general-elective")!;
+      const overlap = computing.courseCodes.filter((c) => general.courseCodes.includes(c));
+      expect(overlap, `spec=${spec ?? "null"}`).toEqual([]);
+    }
   });
 });
