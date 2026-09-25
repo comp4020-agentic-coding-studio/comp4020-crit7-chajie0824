@@ -204,20 +204,13 @@ export function allGroups(): readonly GroupDef[] {
   ];
 }
 
-// The wasted-pick detector: "choose-n" groups (foundational, capstone,
-// university elective, and each specialisation's own list-A style group)
-// have a real, hard ANU cap (`count`) — a pick beyond that cap either falls
-// through to Computing Elective (if COMP-coded) or advances nothing at all
-// (if not). "min-units" groups (list B/list 1/list 2 style) keep their
-// existing soft-minimum, no-cap simplification (see SPECIALISATION_GROUPS's
-// own header comment) — extending capping to them would reopen the
-// already-descoped "list max-cap" problem, so they're left out here.
-//
-// `claimedBy` names the pick(s) that already used up the group's `count`
-// slot(s) — the surplus course itself is never a claimant, so the banner
-// can say *why* a course a student may not even remember picking (in
-// another term) is the one blocking this one, rather than just naming the
-// surplus course in isolation.
+// Shared claim-priority ordering, used both by surplusCourses (below) and by
+// computeProgress's elective bookkeeping. A "pick" is one course code's
+// worth of plan entries — grouped, not left as raw rows, because a
+// termSpan > 1 course (COMP8715) occupies two physical term-slots for what
+// is really one single selection; treating those two rows as two separate
+// "picks" of the same choose-n group would wrongly count the pair as
+// "1 claimed + 1 overflow" of itself.
 //
 // Within a group, a non-COMP pick claims a slot before any COMP-coded pick
 // competing for the same group, regardless of which was planned earlier: a
@@ -227,6 +220,46 @@ export function allGroups(): readonly GroupDef[] {
 // can "steal" the slot from a later non-COMP one that has nowhere else to
 // go, flagging the wrong course as wasted. Ties within the same COMP-ness
 // still go to whichever was planned earlier (term, then position).
+interface Pick {
+  code: string;
+  entries: PlanEntry[];
+  term: number;
+  position: number;
+}
+
+function picksForGroup(group: GroupDef, plan: readonly PlanEntry[], courseByCode: Map<string, Course>): Pick[] {
+  const byCode = new Map<string, PlanEntry[]>();
+  for (const entry of plan) {
+    if (!group.courseCodes.includes(entry.courseCode)) continue;
+    const list = byCode.get(entry.courseCode) ?? [];
+    list.push(entry);
+    byCode.set(entry.courseCode, list);
+  }
+  const byTermPosition = (a: PlanEntry, b: PlanEntry) => a.term - b.term || a.position - b.position;
+  const picks: Pick[] = [...byCode.entries()].map(([code, entries]) => {
+    const earliest = [...entries].sort(byTermPosition)[0];
+    return { code, entries, term: earliest.term, position: earliest.position };
+  });
+  const isComp = (p: Pick) => courseByCode.get(p.code)?.code.startsWith("COMP") ?? false;
+  const byPickOrder = (a: Pick, b: Pick) => a.term - b.term || a.position - b.position;
+  return [...picks.filter((p) => !isComp(p)).sort(byPickOrder), ...picks.filter((p) => isComp(p)).sort(byPickOrder)];
+}
+
+// The wasted-pick detector: "choose-n" groups (foundational, capstone,
+// university elective, and each specialisation's own list-A style group)
+// have a real, hard ANU cap (`count`) — a pick beyond that cap either falls
+// through to Computing/University Elective (if it isn't otherwise claimed —
+// see computeProgress) or advances nothing at all. "min-units" groups (list
+// B/list 1/list 2 style) keep their existing soft-minimum, no-cap
+// simplification (see SPECIALISATION_GROUPS's own header comment) —
+// extending capping to them would reopen the already-descoped "list
+// max-cap" problem, so they're left out here.
+//
+// `claimedBy` names the pick(s) that already used up the group's `count`
+// slot(s) — the surplus course itself is never a claimant, so the banner
+// can say *why* a course a student may not even remember picking (in
+// another term) is the one blocking this one, rather than just naming the
+// surplus course in isolation.
 export interface SurplusEntry {
   course: Course;
   group: GroupDef;
@@ -238,21 +271,15 @@ export function surplusCourses(courses: Course[], plan: readonly PlanEntry[], sp
   const choiceGroups = [...UNIVERSAL_GROUPS, ...own].filter((g) => g.rule === "choose-n");
   const courseByCode = new Map(courses.map((c) => [c.code, c]));
   const surplus: SurplusEntry[] = [];
-  const byTermPosition = (a: PlanEntry, b: PlanEntry) => a.term - b.term || a.position - b.position;
 
   for (const group of choiceGroups) {
-    const matches = plan.filter((p) => group.courseCodes.includes(p.courseCode));
-    const isComp = (entry: PlanEntry) => courseByCode.get(entry.courseCode)?.code.startsWith("COMP") ?? false;
-    const ordered = [
-      ...matches.filter((e) => !isComp(e)).sort(byTermPosition),
-      ...matches.filter((e) => isComp(e)).sort(byTermPosition),
-    ];
+    const ordered = picksForGroup(group, plan, courseByCode);
     const claimedBy = ordered
       .slice(0, group.count ?? 0)
-      .map((entry) => courseByCode.get(entry.courseCode))
+      .map((pick) => courseByCode.get(pick.code))
       .filter((c): c is Course => !!c);
-    ordered.slice(group.count ?? 0).forEach((entry) => {
-      const course = courseByCode.get(entry.courseCode);
+    ordered.slice(group.count ?? 0).forEach((pick) => {
+      const course = courseByCode.get(pick.code);
       if (course && !course.code.startsWith("COMP")) surplus.push({ course, group, claimedBy });
     });
   }
@@ -265,12 +292,52 @@ export interface GroupProgress extends GroupDef {
   satisfied: boolean;
 }
 
+// Every non-elective group's own choose-n/all/min-units pick(s), as actual
+// plan entries — i.e. the courses a real allocation would say are "spoken
+// for" by something other than Computing/University Elective. A choose-n
+// group only claims up to its `count` picks (by the same claim-priority
+// order as surplusCourses); "all" and "min-units" groups claim every match
+// in full, since they have no notion of "beyond the cap" in this app's
+// model (see SPECIALISATION_GROUPS's and surplusCourses's own comments).
+//
+// This is what stops the same physical enrolment counting twice: without
+// it, a course that's already the (only) capstone pick, or the one course
+// that filled a specialisation's choose-1 list, would *also* silently
+// inflate Computing/University Elective's unit total just because its code
+// happens to still sit in that elective's pool (deliberately left there so
+// a genuine *overflow* pick from the same list has somewhere to fall
+// through to — see computingElectiveGroup/generalElectiveGroup).
+function claimedByOtherGroups(courses: Course[], plan: readonly PlanEntry[], hardGroups: readonly GroupDef[]): Set<PlanEntry> {
+  const courseByCode = new Map(courses.map((c) => [c.code, c]));
+  const claimed = new Set<PlanEntry>();
+  for (const group of hardGroups) {
+    if (group.rule === "choose-n") {
+      picksForGroup(group, plan, courseByCode)
+        .slice(0, group.count ?? 0)
+        .forEach((pick) => pick.entries.forEach((e) => claimed.add(e)));
+    } else {
+      plan.forEach((e) => {
+        if (group.courseCodes.includes(e.courseCode)) claimed.add(e);
+      });
+    }
+  }
+  return claimed;
+}
+
 export function computeProgress(courses: Course[], plan: PlanEntry[], spec: SpecialisationKey | null): GroupProgress[] {
   const assignedCodes = new Set(plan.map((p) => p.courseCode));
+  const courseByCode = new Map(courses.map((c) => [c.code, c]));
+  const groups = groupsForSpecialisation(spec);
+  const electiveKeys = new Set(["computing-elective", "general-elective"]);
+  const claimed = claimedByOtherGroups(courses, plan, groups.filter((g) => !electiveKeys.has(g.key)));
 
-  return groupsForSpecialisation(spec).map((group) => {
+  return groups.map((group) => {
     const required = courses.filter((c) => group.courseCodes.includes(c.code));
-    const assigned = required.filter((c) => assignedCodes.has(c.code));
+    const assigned = electiveKeys.has(group.key)
+      ? [...new Set(plan.filter((p) => !claimed.has(p) && group.courseCodes.includes(p.courseCode)).map((p) => p.courseCode))]
+          .map((code) => courseByCode.get(code))
+          .filter((c): c is Course => !!c)
+      : required.filter((c) => assignedCodes.has(c.code));
     const satisfied =
       group.rule === "all"
         ? assigned.length === required.length && required.length > 0

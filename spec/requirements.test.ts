@@ -96,6 +96,55 @@ describe("computeProgress", () => {
     expect(compList2.satisfied).toBe(true); // list 2 is a min-units: 0 top-up, always satisfied
   });
 
+  it("never lets a course already claimed by another requirement double-count towards Computing/University Elective", () => {
+    // PCOM, list A choose-1. Only one non-COMP pick (MGMT7020) and two
+    // COMP overflow picks (COMP6240, COMP6390) are planned — 6+6=12u,
+    // short of Computing Elective's 18u. Before the fix, COMP8715 (the
+    // capstone pick, unrelated to list A) also leaked into Computing
+    // Elective's pool since choose-n codes are deliberately left
+    // unexcluded there, wrongly inflating it to 18/18 and MGMT7020
+    // wrongly also counting towards University Elective on top of list A.
+    const courses = [
+      course("COMP6710"), // core
+      course("COMP8715", 6), // capstone, termSpan 2 — occupies two plan rows
+      course("MATH6005"), // foundational
+      course("COMP6120"), // pcom-compulsory
+      course("ENGN8100"), // pcom-compulsory
+      course("MGMT7020"), // pcom-listA, non-COMP — claims the one slot
+      course("COMP6240"), // pcom-listA, COMP overflow
+      course("COMP6390"), // pcom-listA, COMP overflow
+      course("COMP8020"), // pcom-listB
+    ];
+    const plan = [
+      entry("COMP6710", 1, 1),
+      entry("COMP6120", 1, 2),
+      entry("ENGN8100", 1, 3),
+      entry("COMP6240", 1, 4),
+      entry("MATH6005", 2, 1),
+      entry("COMP6390", 2, 2),
+      entry("COMP8715", 3, 1), // one selection, two rows (termSpan: 2)
+      entry("MGMT7020", 3, 2),
+      entry("COMP8020", 3, 3),
+      entry("COMP8715", 4, 1),
+    ];
+
+    const progress = computeProgress(courses, plan, "PCOM");
+    const capstone = progress.find((g) => g.key === "capstone")!;
+    const listA = progress.find((g) => g.key === "pcom-listA")!;
+    const computingElective = progress.find((g) => g.key === "computing-elective")!;
+    const generalElective = progress.find((g) => g.key === "general-elective")!;
+
+    expect(capstone.assigned.map((c) => c.code)).toEqual(["COMP8715"]);
+    // pcom-listA itself is untouched by this fix — it still shows every
+    // eligible pick (its own satisfied check only needs count >= 1).
+    expect(listA.assigned.map((c) => c.code).sort()).toEqual(["COMP6240", "COMP6390", "MGMT7020"]);
+    // COMP8715 already spoken for by capstone — must not also appear here.
+    expect(computingElective.assigned.map((c) => c.code).sort()).toEqual(["COMP6240", "COMP6390"]);
+    expect(computingElective.satisfied).toBe(false); // 12/18u, genuinely short
+    // MGMT7020 already spoken for by list A — must not also appear here.
+    expect(generalElective.assigned).toEqual([]);
+  });
+
   it("satisfies a min-units group once assigned units reach the threshold", () => {
     const courses = [course("COMP8300", 6), course("COMP8045", 6)];
     const cmsyList1Unsatisfied = computeProgress(courses, [entry("COMP8300")], "CMSY").find(
