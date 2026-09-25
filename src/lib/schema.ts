@@ -9,9 +9,14 @@ import { int, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-co
 // migration trail is what keeps old state and new code compatible.
 
 // Reference data: the slice of the Master of Computing catalogue this
-// prototype models (program 7706XMCOMP, core + Professional Computing
-// specialisation). Seeded at boot from courseSeed in db.ts, not
-// user-editable — it's the catalogue, not the plan.
+// prototype models (program 7706XMCOMP core, plus all 7 specialisations).
+// Seeded at boot from courseSeed in db.ts, not user-editable — it's the
+// catalogue, not the plan. Which requirement group(s) a course counts
+// towards is NOT stored here — a course can count differently depending on
+// which specialisation is active (e.g. COMP6262 is Artificial
+// Intelligence's compulsory course and Computational Foundations' list 2),
+// so that mapping lives in src/lib/requirements.ts and
+// src/lib/specialisations.ts as static reference data instead.
 export const courses = sqliteTable("courses", {
   code: text().primaryKey(), // e.g. "COMP6710"
   title: text().notNull(),
@@ -19,11 +24,6 @@ export const courses = sqliteTable("courses", {
   // "S1" | "S2" | "BOTH" | "NONE" — NONE means the catalogue currently lists
   // no offering at all (a real state some courses are actually in).
   semester: text().notNull(),
-  // Which degree requirement this course counts towards — see
-  // src/lib/requirements.ts for the rule (all-required vs choose-1) that
-  // applies to each group. "core" | "foundational" | "capstone" |
-  // "spec-compulsory" | "spec-listA" | "spec-listB".
-  requirementGroup: text("requirement_group").notNull(),
   // Illustrative only — ANU doesn't publish a student rating for courses the
   // way the reference 教务系统 screenshots do. Seeded with plausible demo
   // values so the UI has something to show; not a real ANU data point.
@@ -62,11 +62,16 @@ export const planEntries = sqliteTable(
 
 export type PlanEntry = typeof planEntries.$inferSelect;
 
-// Single-row settings table: which term "now" is. Drives the done / current
-// / future split shown on the roadmap and completed views.
+// Single-row settings table: which term "now" is, and which specialisation
+// the student has committed to (if any). `specialisation` is nullable —
+// null means "undecided", which is a real, supported state: the student can
+// keep selecting courses before committing (see requirements.ts's
+// groupsForSpecialisation, which shows only the program-wide requirements
+// until this is set).
 export const settings = sqliteTable("settings", {
   id: int().primaryKey().default(1),
   currentTerm: int("current_term").notNull(),
+  specialisation: text(),
 });
 
 export type Settings = typeof settings.$inferSelect;
