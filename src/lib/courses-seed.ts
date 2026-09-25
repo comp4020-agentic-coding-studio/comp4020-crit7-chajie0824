@@ -14,13 +14,18 @@ import type { Course } from "./schema";
 // The program's "University Elective" (any ANU course, any faculty) is
 // genuinely open-ended in the real handbook — any 6-unit course from
 // outside the program counts, so naming 2 specific real courses would
-// misrepresent it as a fixed choice. Modelled instead as 2 identical
-// generic placeholder rows (UNIV-ELEC-1/2, not real ANU codes) — see the
-// University Elective comment further down. PCOM's "any 8000-level COMP
-// course" list is different: since every 8000-level COMP course this app
-// already seeds for the other 6 specialisations is real, PCOM's list B is
-// simply every one of them that isn't a project/capstone course — see
-// requirements.ts's pcom-listB for the exact set and reasoning.
+// misrepresent it as a fixed choice. Two generic placeholder rows
+// (UNIV-ELEC-1/2, not real ANU codes) stand in for that unbounded outside
+// catalogue — see the University Elective comment further down, and
+// requirements.ts's generalElectiveGroup for how the *real* seeded courses
+// (a COMP course beyond Computing Elective's budget, a PCOM list-A pick
+// beyond its own cap, etc.) are also eligible alongside these two rows,
+// since nothing in the handbook wording restricts University Elective away
+// from them. PCOM's "any 8000-level COMP course" list is different: since
+// every 8000-level COMP course this app already seeds for the other 6
+// specialisations is real, PCOM's list B is simply every one of them that
+// isn't a project/capstone course — see requirements.ts's pcom-listB for
+// the exact set and reasoning.
 //
 // `rating` is illustrative demo data (see schema.ts) — not sourced from
 // ANU. `semester` defaults to "BOTH" for courses whose specific offering
@@ -47,10 +52,11 @@ export const courseSeed: readonly Course[] = [
   // University Elective ("校选课"): 12 units, any faculty, any ANU course —
   // genuinely open-ended in the real handbook (any 6-unit course from
   // outside the program counts), so rather than pick 2 arbitrary named
-  // courses to stand in for an unbounded catalogue, this is modelled as 2
-  // identical generic placeholder slots. Picking either one just means "a
-  // university elective goes here" — see requirements.ts's general-elective
-  // group, capped at 2 by there being exactly 2 rows.
+  // courses to stand in for an unbounded catalogue, these 2 identical
+  // generic placeholder rows stand in for "a real elective from outside
+  // this app's whole catalogue". Every other seeded course is also eligible
+  // here once it's not needed elsewhere — see requirements.ts's
+  // generalElectiveGroup.
   { code: "UNIV-ELEC-1", title: "University elective (any faculty)", units: 6, semester: "BOTH", rating: 4.0, termSpan: 1 },
   { code: "UNIV-ELEC-2", title: "University elective (any faculty)", units: 6, semester: "BOTH", rating: 4.0, termSpan: 1 },
 

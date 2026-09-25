@@ -22,13 +22,14 @@ export interface GroupDef {
 }
 
 // Requirements shared by every specialisation — program 7706XMCOMP's own
-// core, foundational, capstone and university-elective rules. Always in
-// force, whether or not a specialisation has been chosen yet.
+// core, foundational and capstone rules. Always in force, whether or not a
+// specialisation has been chosen yet. University Elective used to live here
+// too, as a fixed 2-course list — see generalElectiveGroup below for why
+// it's now computed instead.
 export const UNIVERSAL_GROUPS: readonly GroupDef[] = [
   { key: "core", label: "Core", rule: "all", courseCodes: ["COMP6250", "COMP6442", "COMP6710", "COMP8260"] },
   { key: "foundational", label: "Foundational", rule: "choose-n", count: 1, courseCodes: ["MATH6005", "COMP6260"] },
   { key: "capstone", label: "Capstone", rule: "choose-n", count: 1, courseCodes: ["COMP8715", "COMP8830"] },
-  { key: "general-elective", label: "University elective (any faculty)", rule: "choose-n", count: 2, courseCodes: ["UNIV-ELEC-1", "UNIV-ELEC-2"] },
 ];
 
 // Each specialisation's own 24 units, sourced from
@@ -113,6 +114,11 @@ const ALL_COMP_CODES: readonly string[] = courseSeed
   .filter((c) => c.code.startsWith("COMP"))
   .map((c) => c.code);
 
+// Every seeded course, COMP-coded or not — the pool generalElectiveGroup
+// (below) draws from, since University Elective isn't restricted by
+// subject area the way Computing Elective is.
+const ALL_CATALOGUE_CODES: readonly string[] = courseSeed.map((c) => c.code);
+
 // "choose-n" groups (foundational, capstone, a specialisation's own list-A
 // style group) deliberately keep their codes in the Computing Elective
 // pool: a pick beyond that group's `count` is exactly the kind of course
@@ -136,6 +142,40 @@ function computingElectiveGroup(spec: SpecialisationKey | null): GroupDef {
   };
 }
 
+// University Elective, computed the same way as Computing Elective above —
+// and for the same reason. The real handbook wording (Study Options table,
+// re-fetched this session) is "12 units from completion of elective courses
+// offered by ANU", with the only stated eligibility rule being "electives
+// must be at postgraduate level (6000 or higher)". Unlike Computing
+// Elective's wording ("...from the subject area COMP...or ENGN"), nothing
+// here excludes a COMP-coded course — it's the *whole* catalogue, not a
+// "non-COMP" one. Modelled as a fixed 2-course list (UNIV-ELEC-1/2) before
+// this session, which meant a real, already-seeded course that has no other
+// outlet (e.g. a PCOM list-A pick beyond its choose-1 cap, like MGMT7020 or
+// LAWS8445 — see surplusCourses) had nowhere to go even though it plainly
+// qualifies as "an elective course offered by ANU". So its pool is now
+// computed like Computing Elective's: every catalogue code minus whatever's
+// permanently owned by a fixed/min-units group, minus Computing Elective's
+// own pool (a COMP course beyond its own budget still goes there first, not
+// here, so the same course is never offered under both electives at once).
+// The two placeholder rows stay in the pool — they still stand in for "a
+// real elective from outside this whole catalogue", the ordinary case.
+function generalElectiveGroup(spec: SpecialisationKey | null): GroupDef {
+  const own = spec ? SPECIALISATION_GROUPS[spec] : [];
+  const exclude = new Set([
+    ...fixedOrMinUnitsCodes(UNIVERSAL_GROUPS),
+    ...fixedOrMinUnitsCodes(own),
+    ...computingElectiveGroup(spec).courseCodes,
+  ]);
+  return {
+    key: "general-elective",
+    label: "University elective (any faculty)",
+    rule: "min-units",
+    units: 12,
+    courseCodes: ALL_CATALOGUE_CODES.filter((c) => !exclude.has(c)),
+  };
+}
+
 // What the graduation-audit panels (index.astro, completed.astro,
 // select.astro's aside) check against: the universal groups always, plus
 // the chosen specialisation's own groups once one is picked, plus the
@@ -144,8 +184,8 @@ function computingElectiveGroup(spec: SpecialisationKey | null): GroupDef {
 // the universal groups (and Computing Elective) apply until the student
 // commits.
 export function groupsForSpecialisation(spec: SpecialisationKey | null): readonly GroupDef[] {
-  if (!spec) return [...UNIVERSAL_GROUPS, computingElectiveGroup(null)];
-  return [...UNIVERSAL_GROUPS, ...SPECIALISATION_GROUPS[spec], computingElectiveGroup(spec)];
+  if (!spec) return [...UNIVERSAL_GROUPS, computingElectiveGroup(null), generalElectiveGroup(null)];
+  return [...UNIVERSAL_GROUPS, ...SPECIALISATION_GROUPS[spec], computingElectiveGroup(spec), generalElectiveGroup(spec)];
 }
 
 // What the course picker (select.astro's <select>) offers: every group from
@@ -156,7 +196,12 @@ export function groupsForSpecialisation(spec: SpecialisationKey | null): readonl
 // uses the undecided (universal-only) exclusion set, since no single spec
 // is active in this "browse everything" context.
 export function allGroups(): readonly GroupDef[] {
-  return [...UNIVERSAL_GROUPS, ...SPECIALISATIONS.flatMap((s) => SPECIALISATION_GROUPS[s.key]), computingElectiveGroup(null)];
+  return [
+    ...UNIVERSAL_GROUPS,
+    ...SPECIALISATIONS.flatMap((s) => SPECIALISATION_GROUPS[s.key]),
+    computingElectiveGroup(null),
+    generalElectiveGroup(null),
+  ];
 }
 
 // The wasted-pick detector: "choose-n" groups (foundational, capstone,

@@ -49,6 +49,25 @@ describe("groupsForSpecialisation", () => {
     // Computing Elective (see surplusCourses tests below).
     expect(pcom.courseCodes).toContain("COMP6240");
   });
+
+  it("includes a University Elective group whose pool covers the whole catalogue, not just the two placeholder rows", () => {
+    const pcom = groupsForSpecialisation("PCOM").find((g) => g.key === "general-elective")!;
+    expect(pcom).toBeTruthy();
+    expect(pcom.rule).toBe("min-units");
+    expect(pcom.units).toBe(12);
+    // Still eligible: the two generic placeholder rows.
+    expect(pcom.courseCodes).toContain("UNIV-ELEC-1");
+    expect(pcom.courseCodes).toContain("UNIV-ELEC-2");
+    // Now also eligible: PCOM list A's non-COMP courses, which have no
+    // other outlet once list A's one real slot is already claimed.
+    expect(pcom.courseCodes).toContain("MGMT7020");
+    expect(pcom.courseCodes).toContain("LAWS8445");
+    // A COMP-coded list-A course stays exclusive to Computing Elective —
+    // never double-listed under University Elective too.
+    expect(pcom.courseCodes).not.toContain("COMP6240");
+    // Owned by Core ("all") — never a University Elective either.
+    expect(pcom.courseCodes).not.toContain("COMP6710");
+  });
 });
 
 describe("computeProgress", () => {
