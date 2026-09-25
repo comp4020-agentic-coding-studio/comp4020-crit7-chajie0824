@@ -55,11 +55,11 @@ export const courseSeed: readonly Course[] = [
   { code: "COMP6240", title: "Relational Databases", units: 6, semester: "BOTH", rating: 4.2, termSpan: 1 },
   { code: "COMP6331", title: "Computer Networks", units: 6, semester: "S1", rating: 4.0, termSpan: 1 },
   { code: "COMP6390", title: "Human-Computer Interaction", units: 6, semester: "S2", rating: 4.5, termSpan: 1 },
-  { code: "INFS8004", title: "Enterprise Systems", units: 6, semester: "BOTH", rating: 3.9, termSpan: 1 },
-  { code: "INFS8205", title: "Business Process Management", units: 6, semester: "BOTH", rating: 3.8, termSpan: 1 },
-  { code: "LAWS8445", title: "Law of the Internet and E-Commerce", units: 6, semester: "BOTH", rating: 4.0, termSpan: 1 },
-  { code: "MGMT7020", title: "Managing Organisations and People", units: 6, semester: "BOTH", rating: 4.1, termSpan: 1 },
-  { code: "REGN8014", title: "Regulatory Foundations", units: 6, semester: "BOTH", rating: 3.7, termSpan: 1 },
+  { code: "INFS8004", title: "Enterprise Systems and Strategy", units: 6, semester: "BOTH", rating: 3.9, termSpan: 1 },
+  { code: "INFS8205", title: "Digital Strategy, Executive and Operations", units: 6, semester: "BOTH", rating: 3.8, termSpan: 1 },
+  { code: "LAWS8445", title: "Information Technology Law", units: 6, semester: "BOTH", rating: 4.0, termSpan: 1 },
+  { code: "MGMT7020", title: "Technology and Project Management", units: 6, semester: "BOTH", rating: 4.1, termSpan: 1 },
+  { code: "REGN8014", title: "Contemporary Issues in Technology Governance", units: 6, semester: "BOTH", rating: 3.7, termSpan: 1 },
   // PCOM's "any 8000-level COMP course" list B — genuinely open-ended in the
   // real handbook, represented by 2 illustrative options:
   { code: "COMP8600", title: "Statistical Machine Learning", units: 6, semester: "S1", rating: 4.6, termSpan: 1 },
@@ -67,25 +67,25 @@ export const courseSeed: readonly Course[] = [
 
   // Artificial Intelligence (ARTIF-SPEC) — all 4 compulsory, 24u, no
   // electives
-  { code: "COMP6262", title: "Logic", units: 6, semester: "BOTH", rating: 4.0, termSpan: 1 },
-  { code: "COMP6320", title: "Artificial Intelligence", units: 6, semester: "BOTH", rating: 4.5, termSpan: 1 },
-  { code: "COMP8620", title: "Advanced Topics in Artificial Intelligence", units: 6, semester: "BOTH", rating: 4.3, termSpan: 1 },
-  { code: "COMP8691", title: "Optimisation", units: 6, semester: "BOTH", rating: 4.2, termSpan: 1 },
+  { code: "COMP6262", title: "Logic", units: 6, semester: "S1", rating: 4.0, termSpan: 1 },
+  { code: "COMP6320", title: "Artificial Intelligence", units: 6, semester: "S1", rating: 4.5, termSpan: 1 },
+  { code: "COMP8620", title: "Advanced Topics in Artificial Intelligence", units: 6, semester: "S2", rating: 4.3, termSpan: 1 },
+  { code: "COMP8691", title: "Optimisation", units: 6, semester: "S2", rating: 4.2, termSpan: 1 },
 
   // Computational Foundations (COMP-SPEC)
-  { code: "COMP6361", title: "Principles of Programming Languages", units: 6, semester: "BOTH", rating: 4.1, termSpan: 1 },
-  { code: "COMP6363", title: "Theory of Computation", units: 6, semester: "BOTH", rating: 3.9, termSpan: 1 },
+  { code: "COMP6361", title: "Principles of Programming Languages", units: 6, semester: "S1", rating: 4.1, termSpan: 1 },
+  { code: "COMP6363", title: "Theory of Computation", units: 6, semester: "S1", rating: 3.9, termSpan: 1 },
   { code: "COMP8011", title: "Advanced Topics in Formal Methods and Programming Languages", units: 6, semester: "BOTH", rating: 3.8, termSpan: 1 },
-  { code: "COMP8460", title: "Advanced Algorithms", units: 6, semester: "BOTH", rating: 4.4, termSpan: 1 },
+  { code: "COMP8460", title: "Advanced Algorithms", units: 6, semester: "S1", rating: 4.4, termSpan: 1 },
   { code: "MATH6114", title: "Number Theory and Cryptography", units: 6, semester: "BOTH", rating: 4.0, termSpan: 1 },
-  { code: "MATH8343", title: "Foundations of Mathematics", units: 6, semester: "BOTH", rating: 3.9, termSpan: 1 },
-  { code: "COMP6261", title: "Information Theory", units: 6, semester: "BOTH", rating: 4.0, termSpan: 1 },
+  { code: "MATH8343", title: "Foundations of Mathematics", units: 6, semester: "S1", rating: 3.9, termSpan: 1 },
+  { code: "COMP6261", title: "Information Theory", units: 6, semester: "S2", rating: 4.0, termSpan: 1 },
   { code: "COMP6466", title: "Algorithms", units: 6, semester: "BOTH", rating: 4.3, termSpan: 1 },
   { code: "COMP8712", title: "Compiler Construction", units: 6, semester: "BOTH", rating: 4.2, termSpan: 1 },
 
   // Computer Systems (CMSY-SPEC)
   { code: "COMP8300", title: "Parallel Systems", units: 6, semester: "BOTH", rating: 4.1, termSpan: 1 },
-  { code: "COMP8045", title: "Advanced Topics in Computer Systems", units: 6, semester: "BOTH", rating: 3.9, termSpan: 1 },
+  { code: "COMP8045", title: "Advanced Topics in Computer Systems & Architecture", units: 6, semester: "BOTH", rating: 3.9, termSpan: 1 },
   { code: "COMP6310", title: "Systems Networks and Concurrency", units: 6, semester: "BOTH", rating: 4.0, termSpan: 1 },
   { code: "COMP6330", title: "Operating Systems", units: 6, semester: "BOTH", rating: 4.4, termSpan: 1 },
   { code: "COMP6464", title: "High Performance Scientific Computing", units: 6, semester: "BOTH", rating: 4.0, termSpan: 1 },
@@ -94,25 +94,25 @@ export const courseSeed: readonly Course[] = [
   // Data Science (DTSC-SPEC)
   { code: "COMP8410", title: "Data Mining", units: 6, semester: "BOTH", rating: 4.3, termSpan: 1 },
   { code: "COMP8430", title: "Data Wrangling", units: 6, semester: "BOTH", rating: 4.1, termSpan: 1 },
-  { code: "COMP6490", title: "Document Analysis", units: 6, semester: "BOTH", rating: 3.9, termSpan: 1 },
-  { code: "COMP6670", title: "Introduction to Machine Learning", units: 6, semester: "BOTH", rating: 4.4, termSpan: 1 },
+  { code: "COMP6490", title: "Document Analysis", units: 6, semester: "S2", rating: 3.9, termSpan: 1 },
+  { code: "COMP6670", title: "Introduction to Machine Learning", units: 6, semester: "S2", rating: 4.4, termSpan: 1 },
   { code: "STAT6039", title: "Principles of Mathematical Statistics", units: 6, semester: "BOTH", rating: 3.8, termSpan: 1 },
   // Shared with Machine Learning's own list below — checked this session
   // against both DTSC-SPEC and MCHL-SPEC.
   { code: "COMP8650", title: "Advanced Topics in Machine Learning", units: 6, semester: "S2", rating: 4.3, termSpan: 1 },
 
   // Human-Centred and Creative Computing (HCCM-SPEC)
-  { code: "COMP8350", title: "Sound and Music Computing", units: 6, semester: "BOTH", rating: 4.2, termSpan: 1 },
-  { code: "COMP8539", title: "Advanced Topics in Computer Vision", units: 6, semester: "BOTH", rating: 4.0, termSpan: 1 },
-  { code: "COMP8610", title: "Computer Graphics", units: 6, semester: "BOTH", rating: 4.3, termSpan: 1 },
+  { code: "COMP8350", title: "Sound and Music Computing", units: 6, semester: "S1", rating: 4.2, termSpan: 1 },
+  { code: "COMP8539", title: "Advanced Topics in Computer Vision", units: 6, semester: "S2", rating: 4.0, termSpan: 1 },
+  { code: "COMP8610", title: "Computer Graphics", units: 6, semester: "S1", rating: 4.3, termSpan: 1 },
   // Co-taught with COMP4020 (this crit course's own postgrad pairing) — a
   // valid substitute for COMP8350 or COMP8539 per SoCo's own substitutions
   // list, so it joins hccm-list1 as a peer rather than modelling a separate
   // 1:1 substitution chain.
   { code: "COMP8020", title: "Advanced Topics in Human-Centred and Creative Computing", units: 6, semester: "S2", rating: 5.0, termSpan: 1 },
-  { code: "COMP6528", title: "Computer Vision", units: 6, semester: "BOTH", rating: 4.1, termSpan: 1 },
+  { code: "COMP6528", title: "Computer Vision", units: 6, semester: "S1", rating: 4.1, termSpan: 1 },
   { code: "COMP6540", title: "Game Development", units: 6, semester: "BOTH", rating: 4.5, termSpan: 1 },
-  { code: "COMP6720", title: "Art and Interaction Computing", units: 6, semester: "BOTH", rating: 4.0, termSpan: 1 },
+  { code: "COMP6720", title: "Art and Interaction Computing", units: 6, semester: "S2", rating: 4.0, termSpan: 1 },
   { code: "COMP6780", title: "Web Programming and Design", units: 6, semester: "BOTH", rating: 4.2, termSpan: 1 },
 
   // Machine Learning (MCHL-SPEC) reuses COMP6261/COMP6490/COMP6528/
