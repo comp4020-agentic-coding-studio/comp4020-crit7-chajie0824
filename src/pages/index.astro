@@ -1,18 +1,23 @@
 ---
-import { getCurrentTerm, listCourses, listPlan, listPrerequisites } from "../lib/db";
+import { getCurrentTerm, getSpecialisation, listCourses, listPlan, listPrerequisites } from "../lib/db";
 import { completedBefore, lockedCourses } from "../lib/prerequisites";
-import { computeProgress } from "../lib/requirements";
+import { computeProgress, groupPercent } from "../lib/requirements";
+import { SPECIALISATIONS, specialisationLabel, type SpecialisationKey } from "../lib/specialisations";
 import { TERMS, termStatus } from "../lib/terms";
 import "../styles.css";
 
 const courses = listCourses();
 const plan = listPlan();
 const currentTerm = getCurrentTerm();
+const specialisation = getSpecialisation() as SpecialisationKey | null;
 
 const courseByCode = new Map(courses.map((c) => [c.code, c]));
 const planByCell = new Map(plan.map((p) => [`${p.term}-${p.position}`, p]));
-const progress = computeProgress(courses, plan);
+const progress = computeProgress(courses, plan, specialisation);
 const totalUnits = plan.reduce((sum, p) => sum + (courseByCode.get(p.courseCode)?.units ?? 0), 0);
+const PROGRAM_UNITS = 96;
+const overallPct = Math.min(100, Math.round((totalUnits / PROGRAM_UNITS) * 100));
+const termsDone = TERMS.filter((t) => t.term < currentTerm).length;
 
 const completed = completedBefore(plan, currentTerm);
 const locked = lockedCourses(courses, plan, listPrerequisites(), completed);
@@ -43,27 +48,60 @@ const STATUS_LABEL: Record<string, string> = {
       <h1>Master of Computing roadmap</h1>
       <p>
         A slice of the Master of Computing (7706XMCOMP) course structure —
-        Professional Computing specialisation — laid out as a 4-term
-        timeline starting 2025 S2. This is the graduation audit: what's
-        done, what's current, and what's still outstanding.
+        {specialisation ? specialisationLabel(specialisation) : "specialisation undecided"} —
+        laid out as a 4-term timeline starting 2025 S2. This is the
+        graduation audit: what's done, what's current, and what's still
+        outstanding.
       </p>
 
-      <form method="post" action="/api/settings" class="current-term-form card">
-        <input type="hidden" name="returnTo" value="/" />
-        <label for="currentTerm">Current term</label>
-        <select id="currentTerm" name="currentTerm">
-          {TERMS.map((t) => (
-            <option value={t.term} selected={t.term === currentTerm}>
-              Term {t.term} — {t.label}
-            </option>
-          ))}
-        </select>
-        <button>Update</button>
-      </form>
+      <div class="current-term-form card" style="display: flex; flex-wrap: wrap; gap: 1.5rem;">
+        <form method="post" action="/api/settings" style="display: flex; align-items: center; gap: 0.6rem;">
+          <input type="hidden" name="returnTo" value="/" />
+          <label for="currentTerm">Current term</label>
+          <select id="currentTerm" name="currentTerm">
+            {TERMS.map((t) => (
+              <option value={t.term} selected={t.term === currentTerm}>
+                Term {t.term} — {t.label}
+              </option>
+            ))}
+          </select>
+          <button>Update</button>
+        </form>
 
-      <p class="summary card" aria-live="polite">
-        <strong>{totalUnits} units</strong> planned across all terms.
-      </p>
+        <form method="post" action="/api/settings" style="display: flex; align-items: center; gap: 0.6rem;">
+          <input type="hidden" name="returnTo" value="/" />
+          <label for="specialisation">Specialisation</label>
+          <select id="specialisation" name="specialisation">
+            <option value="" selected={!specialisation}>Undecided</option>
+            {SPECIALISATIONS.map((s) => (
+              <option value={s.key} selected={s.key === specialisation}>{s.label}</option>
+            ))}
+          </select>
+          <button>Update</button>
+        </form>
+      </div>
+
+      <div class="progress-ring-wrap card">
+        <div class="progress-ring" style={`--pct: ${overallPct}`}></div>
+        <div class="stat-cards">
+          <div class="stat-card">
+            <span class="stat-value">{totalUnits} / {PROGRAM_UNITS}</span>
+            <span class="stat-label">Units planned</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value">{Math.max(0, PROGRAM_UNITS - totalUnits)}</span>
+            <span class="stat-label">Units to go</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value">{specialisationLabel(specialisation)}</span>
+            <span class="stat-label">Specialisation</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value">{termsDone} / {TERMS.length}</span>
+            <span class="stat-label">Terms completed</span>
+          </div>
+        </div>
+      </div>
 
       <h2>Graduation audit</h2>
       <ul class="progress-list card">
@@ -86,6 +124,9 @@ const STATUS_LABEL: Record<string, string> = {
                 {group.assigned.length > 0 && ` (have ${group.assigned.map((c) => c.code).join(", ")})`}
               </span>
             )}
+            <div class="bar-track">
+              <div class="bar-fill" style={`width: ${groupPercent(group)}%`}></div>
+            </div>
           </li>
         ))}
       </ul>
